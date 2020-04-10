@@ -32,6 +32,8 @@ build/scala*
 build/zinc*
 cache
 checkpoint
+common/pmem-common/src/native/build
+common/pmem-common/src/resources
 conf/*.cmd
 conf/*.conf
 conf/*.properties
