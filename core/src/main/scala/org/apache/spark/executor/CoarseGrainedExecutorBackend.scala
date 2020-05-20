@@ -41,6 +41,7 @@ private[spark] class CoarseGrainedExecutorBackend(
     override val rpcEnv: RpcEnv,
     driverUrl: String,
     executorId: String,
+    numaNodeId: Option[String],
     hostname: String,
     cores: Int,
     userClassPath: Seq[URL],
@@ -177,6 +178,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
   private def run(
       driverUrl: String,
       executorId: String,
+      numaNodeId: Option[String],
       hostname: String,
       cores: Int,
       appId: String,
@@ -221,8 +223,10 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       val env = SparkEnv.createExecutorEnv(
         driverConf, executorId, hostname, cores, cfg.ioEncryptionKey, isLocal = false)
 
+      SparkEnv.get.conf.set("spark.executor.numa.id", s"${numaNodeId.getOrElse(-1)}")
+
       env.rpcEnv.setupEndpoint("Executor", new CoarseGrainedExecutorBackend(
-        env.rpcEnv, driverUrl, executorId, hostname, cores, userClassPath, env))
+        env.rpcEnv, driverUrl, executorId, numaNodeId, hostname, cores, userClassPath, env))
       workerUrl.foreach { url =>
         env.rpcEnv.setupEndpoint("WorkerWatcher", new WorkerWatcher(env.rpcEnv, url))
       }
@@ -233,6 +237,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
   def main(args: Array[String]) {
     var driverUrl: String = null
     var executorId: String = null
+    var numaNodeId: Option[String] = None
     var hostname: String = null
     var cores: Int = 0
     var appId: String = null
@@ -257,6 +262,9 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
         case ("--app-id") :: value :: tail =>
           appId = value
           argv = tail
+        case ("--numa-node-id") :: value :: tail =>
+          numaNodeId = Some(value.trim.toString)
+          argv = tail
         case ("--worker-url") :: value :: tail =>
           // Worker url is used in spark standalone mode to enforce fate-sharing with worker
           workerUrl = Some(value)
@@ -278,7 +286,8 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       printUsageAndExit()
     }
 
-    run(driverUrl, executorId, hostname, cores, appId, workerUrl, userClassPath)
+    logInfo(s"[NUMACHECK] numaNodeId $numaNodeId")
+    run(driverUrl, executorId, numaNodeId, hostname,  cores, appId, workerUrl, userClassPath)
     System.exit(0)
   }
 
@@ -291,6 +300,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       | Options are:
       |   --driver-url <driverUrl>
       |   --executor-id <executorId>
+      |   --numa-node-id <numaNodeId>
       |   --hostname <hostname>
       |   --cores <cores>
       |   --app-id <appid>

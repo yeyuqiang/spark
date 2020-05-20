@@ -36,6 +36,7 @@ import org.apache.hadoop.yarn.ipc.YarnRPC
 import org.apache.hadoop.yarn.util.{ConverterUtils, Records}
 
 import org.apache.spark.{SecurityManager, SparkConf, SparkException}
+import org.apache.spark.deploy.yarn.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
 import org.apache.spark.network.util.JavaUtils
@@ -47,6 +48,7 @@ private[yarn] class ExecutorRunnable(
     sparkConf: SparkConf,
     masterAddress: String,
     executorId: String,
+    numaNodeId: Option[String],
     hostname: String,
     executorMemory: Int,
     executorCores: Int,
@@ -197,9 +199,23 @@ private[yarn] class ExecutorRunnable(
       Seq("--user-class-path", "file:" + absPath)
     }.toSeq
 
+    val numaEnabled = sparkConf.get(SPARK_YARN_NUMA_ENABLED)
+
+    logInfo(s"[NUMACHECK] numaEnabled $numaEnabled executorId $executorId")
+    // Don't need numa binding for driver.
+    val (numaCtlCommand, numaNodeOpts) = if (numaEnabled && executorId != "<executorId>"
+      && numaNodeId.nonEmpty) {
+      logInfo(s"numaNodeId ${numaNodeId.get}")
+      val command = s"numactl --cpubind=${numaNodeId.get} --membind=${numaNodeId.get} "
+      (command, Seq("--numa-node-id", numaNodeId.get.toString))
+    } else {
+      ("", Nil)
+    }
+
+    logInfo(s"[NUMACHECK] numactl command $numaCtlCommand")
     YarnSparkHadoopUtil.addOutOfMemoryErrorArgument(javaOpts)
     val commands = prefixEnv ++
-      Seq(Environment.JAVA_HOME.$$() + "/bin/java", "-server") ++
+      Seq(numaCtlCommand  + Environment.JAVA_HOME.$$() + "/bin/java", "-server") ++
       javaOpts ++
       Seq("org.apache.spark.executor.CoarseGrainedExecutorBackend",
         "--driver-url", masterAddress,
@@ -207,11 +223,13 @@ private[yarn] class ExecutorRunnable(
         "--hostname", hostname,
         "--cores", executorCores.toString,
         "--app-id", appId) ++
+      numaNodeOpts ++
       userClassPath ++
       Seq(
         s"1>${ApplicationConstants.LOG_DIR_EXPANSION_VAR}/stdout",
         s"2>${ApplicationConstants.LOG_DIR_EXPANSION_VAR}/stderr")
 
+    logInfo(s"[NUMACHECK] container command $commands")
     // TODO: it would be nicer to just make sure there are no null commands here
     commands.map(s => if (s == null) "null" else s).toList
   }
