@@ -34,10 +34,6 @@
   <url>http://spark.apache.org/</url>
   <dependencies>
     <dependency>
-      <groupId>com.intel</groupId>
-      <artifactId>oap-common</artifactId>
-    </dependency>
-    <dependency>
       <groupId>com.thoughtworks.paranamer</groupId>
       <artifactId>paranamer</artifactId>
     </dependency>
