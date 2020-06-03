@@ -36,7 +36,7 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.intel</groupId>
+      <groupId>com.intel.oap</groupId>
       <artifactId>oap-common</artifactId>
     </dependency>
 
