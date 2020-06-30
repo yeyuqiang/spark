@@ -34,6 +34,8 @@ import scala.util.control.NonFatal
 
 import com.codahale.metrics.{MetricRegistry, MetricSet}
 import com.google.common.cache.CacheBuilder
+import com.intel.oap.common.unsafe.PersistentMemoryPlatform
+
 import org.apache.commons.io.IOUtils
 
 import org.apache.spark._
@@ -415,6 +417,7 @@ private[spark] class BlockManager(
       val allocator = level.memoryMode match {
         case MemoryMode.ON_HEAP => ByteBuffer.allocate _
         case MemoryMode.OFF_HEAP => Platform.allocateDirectBuffer _
+        case MemoryMode.PMEM => PersistentMemoryPlatform.allocateVolatileDirectBuffer _
       }
       blockData().toChunkedByteBuffer(allocator)
     }
@@ -1471,6 +1474,7 @@ private[spark] class BlockManager(
           val allocator = level.memoryMode match {
             case MemoryMode.ON_HEAP => ByteBuffer.allocate _
             case MemoryMode.OFF_HEAP => Platform.allocateDirectBuffer _
+            case MemoryMode.PMEM => PersistentMemoryPlatform.allocateVolatileDirectBuffer _
           }
           val putSucceeded = memoryStore.putBytes(blockId, diskData.size, level.memoryMode, () => {
             // https://issues.apache.org/jira/browse/SPARK-6076
