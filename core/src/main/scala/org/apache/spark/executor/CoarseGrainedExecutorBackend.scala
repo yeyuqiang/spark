@@ -324,7 +324,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
           driverConf.set(key, value)
         }
       }
-      driverConf.set("spark.executor.numa.id", s"${numaNodeId.getOrElse(-1)}")
+      driverConf.set("spark.executor.numa.id", s"${arguments.numaNodeId.getOrElse(-1)}")
 
       cfg.hadoopDelegationCreds.foreach { tokens =>
         SparkHadoopUtil.get.addDelegationTokens(tokens, driverConf)
