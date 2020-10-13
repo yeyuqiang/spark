@@ -354,6 +354,7 @@ private[spark] class BlockManager(
           addUpdatedBlockStatusToTaskMetrics(blockId, putBlockStatus)
         }
         logDebug(s"Put block ${blockId} locally took ${Utils.getUsedTimeNs(startTimeNs)}")
+        updateBlockWriteTimeToTaskMetrics(Utils.getUsedTimeNsAsLong(startTimeNs))
         if (level.replication > 1) {
           // Wait for asynchronous replication to finish
           try {
@@ -1421,6 +1422,7 @@ private[spark] class BlockManager(
         }
         addUpdatedBlockStatusToTaskMetrics(blockId, putBlockStatus)
         logDebug(s"Put block $blockId locally took ${Utils.getUsedTimeNs(startTimeNs)}")
+        updateBlockWriteTimeToTaskMetrics(Utils.getUsedTimeNsAsLong(startTimeNs))
         if (level.replication > 1) {
           val remoteStartTimeNs = System.nanoTime()
           val bytesToReplicate = doGetLocalBytes(blockId, info)
@@ -1438,6 +1440,7 @@ private[spark] class BlockManager(
             bytesToReplicate.dispose()
           }
           logDebug(s"Put block $blockId remotely took ${Utils.getUsedTimeNs(remoteStartTimeNs)}")
+          updateBlockWriteTimeToTaskMetrics(Utils.getUsedTimeNsAsLong(startTimeNs))
         }
       }
       assert(blockWasSuccessfullyStored == iteratorFromFailedMemoryStorePut.isEmpty)
@@ -1814,6 +1817,12 @@ private[spark] class BlockManager(
       Option(TaskContext.get()).foreach { c =>
         c.taskMetrics().incUpdatedBlockStatuses(blockId -> status)
       }
+    }
+  }
+
+  private def updateBlockWriteTimeToTaskMetrics(writeTime: Long): Unit = {
+    Option(TaskContext.get()).foreach { c =>
+      c.taskMetrics().incRddBlockWriteTime(writeTime)
     }
   }
 

@@ -412,7 +412,9 @@ private[spark] object JsonProtocol {
     ("Shuffle Write Metrics" -> shuffleWriteMetrics) ~
     ("Input Metrics" -> inputMetrics) ~
     ("Output Metrics" -> outputMetrics) ~
-    ("Updated Blocks" -> updatedBlocks)
+    ("Updated Blocks" -> updatedBlocks) ~
+    ("RDD Block Write Time" -> taskMetrics.rddBlockWriteTime) ~
+    ("RDD Block Read Time" -> taskMetrics.rddBlockReadTime)
   }
 
   /** Convert executor metrics to JSON. */
@@ -967,6 +969,9 @@ private[spark] object JsonProtocol {
         (id, status)
       })
     }
+
+    metrics.incRddBlockWriteTime((json \ "RDD Block Write Time").extract[Long])
+    metrics.incRddBlockReadTime((json \ "RDD Block Read Time").extract[Long])
 
     metrics
   }

@@ -1069,6 +1069,10 @@ private[spark] object Utils extends Logging {
     s"${TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs)} ms"
   }
 
+  def getUsedTimeNsAsLong(startTimeNs: Long): Long = {
+    TimeUnit.NANOSECONDS.toNanos(System.nanoTime() - startTimeNs)
+  }
+
   /**
    * Delete a file or directory and its contents recursively.
    * Don't follow directories if they are symlinks.

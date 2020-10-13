@@ -292,6 +292,7 @@ class KryoDeserializationStream(
   private[this] var kryo: Kryo = serInstance.borrowKryo()
 
   override def readObject[T: ClassTag](): T = {
+    val startTimeNs = System.nanoTime()
     try {
       kryo.readClassAndObject(input).asInstanceOf[T]
     } catch {
@@ -299,6 +300,14 @@ class KryoDeserializationStream(
       case e: KryoException
         if e.getMessage.toLowerCase(Locale.ROOT).contains("buffer underflow") =>
         throw new EOFException
+    } finally {
+      updateBlockReadTimeToTaskMetrics(Utils.getUsedTimeNsAsLong(startTimeNs))
+    }
+  }
+
+  private def updateBlockReadTimeToTaskMetrics(readTime: Long): Unit = {
+    Option(TaskContext.get()).foreach { c =>
+      c.taskMetrics().incRddBlockReadTime(readTime)
     }
   }
 

@@ -40,6 +40,8 @@ private[spark] object InternalAccumulator {
   val MEMORY_BYTES_SPILLED = METRICS_PREFIX + "memoryBytesSpilled"
   val DISK_BYTES_SPILLED = METRICS_PREFIX + "diskBytesSpilled"
   val PEAK_EXECUTION_MEMORY = METRICS_PREFIX + "peakExecutionMemory"
+  val RDD_BLOCK_WRITE_TIME = METRICS_PREFIX + "rddBlockWriteTime"
+  val RDD_BLOCK_READ_TIME = METRICS_PREFIX + "rddBlockReadTime"
   val UPDATED_BLOCK_STATUSES = METRICS_PREFIX + "updatedBlockStatuses"
   val TEST_ACCUM = METRICS_PREFIX + "testAccumulator"
 
