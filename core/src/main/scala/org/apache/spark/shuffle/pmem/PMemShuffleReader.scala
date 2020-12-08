@@ -34,7 +34,6 @@ private[spark] class PMemShuffleReader[K, C](
 
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
-    logInfo("PMemShuffleReader read")
     Iterator.empty
   }
 

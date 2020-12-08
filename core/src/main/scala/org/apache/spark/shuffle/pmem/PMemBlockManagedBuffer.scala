@@ -15,28 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.spark.shuffle.pmem;
+package org.apache.spark.shuffle.pmem
 
-import org.apache.spark.SparkConf;
-import org.apache.spark.shuffle.api.ShuffleDataIO;
-import org.apache.spark.shuffle.api.ShuffleDriverComponents;
-import org.apache.spark.shuffle.api.ShuffleExecutorComponents;
+import java.io.InputStream
+import java.nio.ByteBuffer
 
-public class PMemShuffleDataIO implements ShuffleDataIO {
+import org.apache.spark.network.buffer.ManagedBuffer
+import org.apache.spark.storage.BlockId
 
-  private final SparkConf sparkConf;
+private[spark] class PMemBlockManagedBuffer(blockId: BlockId) extends ManagedBuffer {
 
-  public PMemShuffleDataIO(SparkConf sparkConf) {
-    this.sparkConf = sparkConf;
+  override def size(): Long = {
+    0
   }
 
-  @Override
-  public ShuffleExecutorComponents executor() {
-    return new PMemShuffleExecutorComponents(sparkConf);
+  override def nioByteBuffer(): ByteBuffer = {
+    null
   }
 
-  @Override
-  public ShuffleDriverComponents driver() {
-    return new PMemShuffleDriverComponents();
+  override def createInputStream(): InputStream = {
+    null
+  }
+
+  override def retain(): ManagedBuffer = {
+    null
+  }
+
+  override def release(): ManagedBuffer = {
+    null
+  }
+
+  override def convertToNetty(): AnyRef = {
+    null
   }
 }

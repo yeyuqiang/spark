@@ -18,17 +18,16 @@
 package org.apache.spark.shuffle.pmem
 
 import org.apache.arrow.plasma.PlasmaClient
+
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.MapStatus
-import org.apache.spark.shuffle.{BaseShuffleHandle, ShuffleWriter}
-import org.apache.spark.shuffle.api.ShuffleExecutorComponents
+import org.apache.spark.shuffle.ShuffleWriter
 
 private[spark] class PMemShuffleWriter[K, V, C](
     handle: PMemShuffleHandle[K, V, C],
     mapId: Long,
-    context: TaskContext,
-    shuffleExecutorComponents: ShuffleExecutorComponents)
+    context: TaskContext)
   extends ShuffleWriter[K, V] with Logging  {
 
   private val dep = handle.dependency
@@ -36,13 +35,11 @@ private[spark] class PMemShuffleWriter[K, V, C](
 
   /** Write a sequence of records to this task's output */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
-    logInfo("PMemShuffleWriter write")
 //    plasmaClient.create()
   }
 
   /** Close this writer, passing along whether the map completed */
   override def stop(success: Boolean): Option[MapStatus] = {
-    logInfo("PMemShuffleWriter stop")
     None
   }
 

@@ -27,12 +27,12 @@ private[spark] class PMemShuffleBlockResolver(conf: SparkConf) extends ShuffleBl
   with Logging {
 
   override def getBlockData(blockId: BlockId, dirs: Option[Array[String]]): ManagedBuffer = {
-    logInfo("PMemShuffleBlockResolver getBlockData")
-    null
+    new PMemBlockManagedBuffer(blockId)
+
   }
 
   override def stop(): Unit = {
-    logInfo("PMemShuffleBlockResolver stop")
+
   }
 
   def removeDataByMap(shuffleId: Int, mapId: Long): Unit = {
