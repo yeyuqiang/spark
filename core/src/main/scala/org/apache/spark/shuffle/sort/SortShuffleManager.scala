@@ -25,6 +25,7 @@ import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle._
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
+import org.apache.spark.shuffle.pmem.PlasmaShuffleBlockResolver
 import org.apache.spark.util.collection.OpenHashSet
 
 /**
@@ -87,7 +88,13 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
 
   private lazy val shuffleExecutorComponents = loadShuffleExecutorComponents(conf)
 
-  override val shuffleBlockResolver = new IndexShuffleBlockResolver(conf)
+  val plasmaBackendEnabled = conf.getBoolean("spark.shuffle.plasma.enabled", false)
+
+  override val shuffleBlockResolver = if (plasmaBackendEnabled) {
+    new PlasmaShuffleBlockResolver(conf)
+  } else {
+    new IndexShuffleBlockResolver(conf)
+  }
 
   /**
    * Obtains a [[ShuffleHandle]] to pass to tasks.
@@ -166,8 +173,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           metrics,
           shuffleExecutorComponents)
       case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
-        new SortShuffleWriter(
-          shuffleBlockResolver, other, mapId, context, shuffleExecutorComponents)
+        new SortShuffleWriter(other, mapId, context, shuffleExecutorComponents)
     }
   }
 
