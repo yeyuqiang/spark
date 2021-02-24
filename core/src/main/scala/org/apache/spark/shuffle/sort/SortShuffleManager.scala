@@ -163,7 +163,8 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           context,
           env.conf,
           metrics,
-          shuffleExecutorComponents)
+          shuffleExecutorComponents,
+          plasmaBackendEnabled)
       case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K @unchecked, V @unchecked] =>
         new BypassMergeSortShuffleWriter(
           env.blockManager,
@@ -171,9 +172,11 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           mapId,
           env.conf,
           metrics,
-          shuffleExecutorComponents)
+          shuffleExecutorComponents,
+          plasmaBackendEnabled)
       case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
-        new SortShuffleWriter(other, mapId, context, shuffleExecutorComponents)
+        new SortShuffleWriter(other, mapId, context, shuffleExecutorComponents,
+          plasmaBackendEnabled)
     }
   }
 
