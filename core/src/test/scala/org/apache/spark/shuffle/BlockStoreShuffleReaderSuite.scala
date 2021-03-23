@@ -138,6 +138,7 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
       blocksByAddress,
       taskContext,
       metrics,
+      false,
       serializerManager,
       blockManager)
 

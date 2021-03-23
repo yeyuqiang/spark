@@ -80,7 +80,8 @@ final class ShuffleBlockFetcherIterator(
     detectCorrupt: Boolean,
     detectCorruptUseExtraMemory: Boolean,
     shuffleMetrics: ShuffleReadMetricsReporter,
-    doBatchFetch: Boolean)
+    doBatchFetch: Boolean,
+    plasmaBackendEnabled: Boolean = false)
   extends Iterator[(BlockId, InputStream)] with DownloadFileManager with Logging {
 
   import ShuffleBlockFetcherIterator._
@@ -407,6 +408,34 @@ final class ShuffleBlockFetcherIterator(
     blockInfos.foreach { case (blockId, size, _) => assertPositiveBlockSize(blockId, size) }
   }
 
+  private[this] def fetchBlocksFromPlasma(): Unit = {
+    logDebug(s"Start fetching blocks from plasma")
+    while (blocksByAddress.hasNext) {
+      val blockId = blocksByAddress.next()._2(0)._1
+      try {
+        val buf = blockManager.getLocalBlockData(blockId)
+        shuffleMetrics.incLocalBlocksFetched(1)
+        shuffleMetrics.incLocalBytesRead(buf.size)
+        buf.retain()
+        results.put(new SuccessFetchResult(blockId, 0, blockManager.blockManagerId,
+          buf.size(), buf, false))
+      } catch {
+        // If we see an exception, stop immediately.
+        case e: Exception =>
+          e match {
+            // ClosedByInterruptException is an excepted exception when kill task,
+            // don't log the exception stack trace to avoid confusing users.
+            // See: SPARK-28340
+            case ce: ClosedByInterruptException =>
+              logError("Error occurred while fetching local blocks, " + ce.getMessage)
+            case ex: Exception => logError("Error occurred while fetching local blocks", ex)
+          }
+          results.put(new FailureFetchResult(blockId, 0, blockManager.blockManagerId, e))
+          return
+      }
+    }
+  }
+
   /**
    * Fetch the local blocks while we are fetching remote blocks. This is ok because
    * `ManagedBuffer`'s memory is allocated lazily when we create the input stream, so all we
@@ -554,9 +583,15 @@ final class ShuffleBlockFetcherIterator(
     val numFetches = remoteRequests.size - fetchRequests.size
     logInfo(s"Started $numFetches remote fetches in ${Utils.getUsedTimeNs(startTimeNs)}")
 
-    // Get Local Blocks
-    fetchLocalBlocks()
-    logDebug(s"Got local blocks in ${Utils.getUsedTimeNs(startTimeNs)}")
+    if (plasmaBackendEnabled) {
+      fetchBlocksFromPlasma()
+      logDebug(s"Got blocks from plasma in ${Utils.getUsedTimeNs(startTimeNs)}")
+    } else {
+      // Get Local Blocks
+      fetchLocalBlocks()
+      logDebug(s"Got local blocks in ${Utils.getUsedTimeNs(startTimeNs)}")
+    }
+
 
     if (hostLocalBlocks.nonEmpty) {
       blockManager.hostLocalDirManager.foreach(fetchHostLocalBlocks)

@@ -25,7 +25,7 @@ import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.SHUFFLE_IO_PLUGIN_CLASS
 import org.apache.spark.shuffle._
-import org.apache.spark.shuffle.api.{ShuffleDataIO, ShuffleExecutorComponents}
+import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.pmem.{PlasmaShuffleBlockResolver, PlasmaShuffleDataIO}
 import org.apache.spark.util.collection.OpenHashSet
 
@@ -142,6 +142,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       handle.shuffleId, startMapIndex, endMapIndex, startPartition, endPartition)
     new BlockStoreShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]], blocksByAddress, context, metrics,
+      plasmaBackendEnabled,
       shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
   }
 
