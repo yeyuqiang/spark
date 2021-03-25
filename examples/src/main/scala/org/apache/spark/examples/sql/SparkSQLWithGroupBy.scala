@@ -16,17 +16,9 @@
  */
 package org.apache.spark.examples.sql
 
-// $example on:programmatic_schema$
-import org.apache.spark.sql.Row
-// $example off:programmatic_schema$
 // $example on:init_session$
 import org.apache.spark.sql.SparkSession
 // $example off:init_session$
-// $example on:programmatic_schema$
-// $example on:data_types$
-import org.apache.spark.sql.types._
-// $example off:data_types$
-// $example off:programmatic_schema$
 
 object SparkSQLWithGroupBy {
 
@@ -44,10 +36,6 @@ object SparkSQLWithGroupBy {
         "org.apache.spark.shuffle.pmem.PlasmaShuffleDataIO"
       )
       .getOrCreate()
-
-    // For implicit conversions like converting RDDs to DataFrames
-    import spark.implicits._
-    // $example off:init_session$
 
     runBasicDataFrameExample(spark)
 
