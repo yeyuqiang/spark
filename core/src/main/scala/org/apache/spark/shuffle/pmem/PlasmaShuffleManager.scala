@@ -1,0 +1,120 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.spark.shuffle.pmem
+
+import java.util.concurrent.ConcurrentHashMap
+
+import org.apache.spark.{ShuffleDependency, SparkConf, SparkEnv, TaskContext}
+import org.apache.spark.internal.Logging
+// import org.apache.spark.internal.config.BLOCK_MANAGER_PORT
+// import org.apache.spark.network.pmem.PlasmaShuffleTransferService
+import org.apache.spark.shuffle._
+import org.apache.spark.util.collection.OpenHashSet
+
+private[spark] class PlasmaShuffleManager(conf: SparkConf)
+  extends ShuffleManager with Logging {
+
+  initializePlasmaStore
+
+  private[this] def initializePlasmaStore(): Unit = {
+    val isAvailable = PlasmaStoreServer.isPlasmaJavaAvailable
+    val isExist = PlasmaStoreServer.isPlasmaStoreExist();
+    if (isAvailable && isExist) {
+      PlasmaStoreServer.startPlasmaStore()
+      logInfo("Plasma Store Server started.")
+    }
+  }
+
+  private[this] val taskIdMapsForShuffle = new ConcurrentHashMap[Int, OpenHashSet[Long]]()
+
+  override val shuffleBlockResolver = new PlasmaShuffleBlockResolver(conf)
+
+  override def registerShuffle[K, V, C](
+      shuffleId: Int,
+      dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
+//    val env = SparkEnv.get
+//    new PlasmaShuffleTransferService(
+//      conf,
+//      env.securityManager,
+//      env.blockManager.blockManagerId.host,
+//      env.blockManager.blockManagerId.host,
+//      env.conf.get(BLOCK_MANAGER_PORT)).init(env.blockManager)
+
+    new PlasmaShuffleHandle(shuffleId, dependency)
+  }
+
+  override def getWriter[K, V](
+      handle: ShuffleHandle,
+      mapId: Long, context: TaskContext,
+      metrics: ShuffleWriteMetricsReporter): ShuffleWriter[K, V] = {
+    val mapTaskIds = taskIdMapsForShuffle.computeIfAbsent(
+      handle.shuffleId, _ => new OpenHashSet[Long](16))
+    mapTaskIds.synchronized { mapTaskIds.add(context.taskAttemptId()) }
+
+    val env = SparkEnv.get
+    val serializerManager = env.serializerManager
+
+    handle match {
+      case plasmaShuffleHandle: PlasmaShuffleHandle[K @unchecked, V @unchecked, _] =>
+        new PlasmaShuffleWriter(
+          env.blockManager,
+          plasmaShuffleHandle,
+          mapId,
+          serializerManager,
+          conf)
+    }
+  }
+
+  override def getReader[K, C](
+      handle: ShuffleHandle,
+      startMapIndex: Int,
+      endMapIndex: Int,
+      startPartition: Int,
+      endPartition: Int,
+      context: TaskContext,
+      metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
+    val blockByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByExecutorId(
+      handle.shuffleId, startMapIndex, endMapIndex, startPartition, endPartition
+    )
+    new PlasmaStoreShuffleReader(
+      handle.asInstanceOf[PlasmaShuffleHandle[K, _, C]], blockByAddress, context, conf)
+  }
+
+  override def unregisterShuffle(shuffleId: Int): Boolean = {
+    Option(taskIdMapsForShuffle.remove(shuffleId)).foreach { mapTaskIds =>
+      mapTaskIds.iterator.foreach { mapTaskId =>
+        shuffleBlockResolver.removeDataByMap(shuffleId, mapTaskId)
+      }
+    }
+    true
+  }
+
+  override def stop(): Unit = {
+    PlasmaStoreServer.stopPlasmaStore()
+    logInfo("Plasma Store Server stopped.")
+    shuffleBlockResolver.stop()
+  }
+}
+
+/**
+ * Plasma ShuffleHandle implementation that just captures registerShuffle's parameters.
+ */
+private[spark] class PlasmaShuffleHandle[K, V, C](
+    shuffleId: Int,
+    val dependency: ShuffleDependency[K, V, C])
+  extends ShuffleHandle(shuffleId)

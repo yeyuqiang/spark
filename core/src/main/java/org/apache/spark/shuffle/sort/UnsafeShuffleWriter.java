@@ -99,8 +99,6 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   private MyByteArrayOutputStream serBuffer;
   private SerializationStream serOutputStream;
 
-  private boolean plasmaBackendEnabled;
-
   /**
    * Are we in the process of stopping? Because map tasks can call stop() with success = true
    * and then call stop() with success = false if they get an exception, we want to make sure
@@ -116,8 +114,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       TaskContext taskContext,
       SparkConf sparkConf,
       ShuffleWriteMetricsReporter writeMetrics,
-      ShuffleExecutorComponents shuffleExecutorComponents,
-      boolean plasmaBackendEnabled) {
+      ShuffleExecutorComponents shuffleExecutorComponents) {
     final int numPartitions = handle.dependency().partitioner().numPartitions();
     if (numPartitions > SortShuffleManager.MAX_SHUFFLE_OUTPUT_PARTITIONS_FOR_SERIALIZED_MODE()) {
       throw new IllegalArgumentException(
@@ -141,7 +138,6 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       (int) (long) sparkConf.get(package$.MODULE$.SHUFFLE_SORT_INIT_BUFFER_SIZE());
     this.inputBufferSizeInBytes =
       (int) (long) sparkConf.get(package$.MODULE$.SHUFFLE_FILE_BUFFER_SIZE()) * 1024;
-    this.plasmaBackendEnabled = plasmaBackendEnabled;
     open();
   }
 
@@ -210,8 +206,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       initialSortBufferSize,
       partitioner.numPartitions(),
       sparkConf,
-      writeMetrics,
-      plasmaBackendEnabled);
+      writeMetrics);
     serBuffer = new MyByteArrayOutputStream(DEFAULT_INITIAL_SER_BUFFER_SIZE);
     serOutputStream = serializer.serializeStream(serBuffer);
   }

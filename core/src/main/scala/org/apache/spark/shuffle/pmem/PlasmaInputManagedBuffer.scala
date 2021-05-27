@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.spark.shuffle.pmem;
+package org.apache.spark.shuffle.pmem
 
-import org.apache.spark.SparkConf;
-import org.apache.spark.shuffle.api.ShuffleDataIO;
-import org.apache.spark.shuffle.api.ShuffleDriverComponents;
-import org.apache.spark.shuffle.api.ShuffleExecutorComponents;
+import java.io.InputStream
+import java.nio.ByteBuffer
 
-public class PlasmaShuffleDataIO implements ShuffleDataIO {
-    private final SparkConf sparkConf;
+import org.apache.spark.network.buffer.ManagedBuffer
+import org.apache.spark.storage.BlockId
 
-    public PlasmaShuffleDataIO(SparkConf sparkConf) {
-        this.sparkConf = sparkConf;
-    }
+private[spark] class PlasmaInputManagedBuffer(
+    blockId: BlockId,
+    kvNum: Long)
+  extends ManagedBuffer {
 
-    @Override
-    public ShuffleExecutorComponents executor() {
-        return new PlasmaShuffleExecutorComponents(sparkConf);
-    }
+  override def size(): Long = {
+    kvNum
+  }
 
-    @Override
-    public ShuffleDriverComponents driver() {
-        return new PlasmaShuffleDriverComponets();
-    }
+  override def createInputStream(): InputStream = new PlasmaInputStream(blockId.name)
+
+  override def retain(): ManagedBuffer = this
+
+  override def release(): ManagedBuffer = this
+
+  override def nioByteBuffer(): ByteBuffer = throw new UnsupportedOperationException
+
+  override def convertToNetty(): AnyRef = throw new UnsupportedOperationException
 }

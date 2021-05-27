@@ -23,10 +23,8 @@ import scala.collection.JavaConverters._
 
 import org.apache.spark._
 import org.apache.spark.internal.Logging
-import org.apache.spark.internal.config.SHUFFLE_IO_PLUGIN_CLASS
 import org.apache.spark.shuffle._
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
-import org.apache.spark.shuffle.pmem.{PlasmaShuffleBlockResolver, PlasmaShuffleDataIO}
 import org.apache.spark.util.collection.OpenHashSet
 
 /**
@@ -89,14 +87,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
 
   private lazy val shuffleExecutorComponents = loadShuffleExecutorComponents(conf)
 
-  val plasmaBackendEnabled = conf.get(SHUFFLE_IO_PLUGIN_CLASS)
-    .equals(classOf[PlasmaShuffleDataIO].getName)
-
-  override val shuffleBlockResolver = if (plasmaBackendEnabled) {
-    new PlasmaShuffleBlockResolver(conf)
-  } else {
-    new IndexShuffleBlockResolver(conf)
-  }
+  override val shuffleBlockResolver = new IndexShuffleBlockResolver(conf)
 
   /**
    * Obtains a [[ShuffleHandle]] to pass to tasks.
@@ -142,7 +133,6 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       handle.shuffleId, startMapIndex, endMapIndex, startPartition, endPartition)
     new BlockStoreShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]], blocksByAddress, context, metrics,
-      plasmaBackendEnabled,
       shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
   }
 
@@ -166,8 +156,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           context,
           env.conf,
           metrics,
-          shuffleExecutorComponents,
-          plasmaBackendEnabled)
+          shuffleExecutorComponents)
       case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K @unchecked, V @unchecked] =>
         new BypassMergeSortShuffleWriter(
           env.blockManager,
@@ -175,11 +164,10 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           mapId,
           env.conf,
           metrics,
-          shuffleExecutorComponents,
-          plasmaBackendEnabled)
+          shuffleExecutorComponents)
       case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
-        new SortShuffleWriter(other, mapId, context, shuffleExecutorComponents,
-          plasmaBackendEnabled)
+        new SortShuffleWriter(
+          shuffleBlockResolver, other, mapId, context, shuffleExecutorComponents)
     }
   }
 

@@ -1,13 +1,6 @@
-package org.apache.spark.io.pmem;
+package org.apache.spark.shuffle.pmem;
 
-import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
-import org.apache.spark.serializer.JavaSerializer;
-import org.apache.spark.serializer.SerializerManager;
-import org.apache.spark.shuffle.pmem.PlasmaBlockObjectWriter;
-import org.apache.spark.storage.BlockId;
-import org.apache.spark.storage.PlasmaShuffleBlockId;
-import org.glassfish.jersey.message.internal.Utils;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,16 +13,21 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-public class PlasmaTestSuite {
-
-  public final static int DEFAULT_BUFFER_SIZE = 4096;
+public class PlasmaStoreServer {
 
   public final static String plasmaStoreServer = "plasma-store-server";
-  public final static String plasmaStoreSocket = "/tmp/PlasmaOutputInputStreamSuite_socket_file";
-  public final static long memoryInBytes = 1000000000;
+
+  public final static String plasmaStoreSocket = SparkEnv.get() == null ?
+      PlasmaConf.DEFAULT_STORE_SERVER_SOCKET_VALUE :
+      SparkEnv.get().conf().get(PlasmaConf.STORE_SERVER_SOCKET_KEY);
+
+  public final static String plasmaStoreDir = SparkEnv.get() == null ?
+      PlasmaConf.DEFAULT_STORE_SERVER_DIR_VALUE :
+      SparkEnv.get().conf().get(PlasmaConf.STORE_SERVER_DIR_KEY);
+
+  public final static String plasmaStoreMemory = SparkEnv.get() == null ?
+      PlasmaConf.DEFAULT_STORE_SERVER_MEMORY_VALUE :
+      SparkEnv.get().conf().get(PlasmaConf.STORE_SERVER_MEMORY_KEY);
 
   public static Process process;
 
@@ -57,7 +55,8 @@ public class PlasmaTestSuite {
   }
 
   public static boolean startPlasmaStore() throws IOException, InterruptedException {
-    String command = plasmaStoreServer + " -s " + plasmaStoreSocket + " -m " + memoryInBytes;
+    String command = plasmaStoreServer + " -s " + plasmaStoreSocket
+        + " -m " + plasmaStoreMemory + " -d " + plasmaStoreDir;
     process = startProcess(command);
     int ticktock = 60;
     if (process != null) {
@@ -94,22 +93,4 @@ public class PlasmaTestSuite {
     }
   }
 
-  public static void mockSparkEnv() {
-    SparkConf conf = new SparkConf();
-    conf.set("spark.io.plasma.server.socket", plasmaStoreSocket);
-    SparkEnv mockEnv = mock(SparkEnv.class);
-    SparkEnv.set(mockEnv);
-    when(mockEnv.conf()).thenReturn(conf);
-  }
-
-  public PlasmaBlockObjectWriter createWriter(BlockId blockId) throws IOException {
-    SparkConf conf = new SparkConf();
-    JavaSerializer javaSerializer = new JavaSerializer(conf);
-    PlasmaBlockObjectWriter objectWriter = new PlasmaBlockObjectWriter(
-        new SerializerManager(javaSerializer, conf),
-        javaSerializer.newInstance(),
-        blockId,
-        new File(Utils.createTempFile(), "spilling_file"));
-    return objectWriter;
-  }
 }

@@ -12,9 +12,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.io.pmem;
-
-import java.nio.ByteBuffer;
+package org.apache.spark.shuffle.pmem;
 
 /**
  * Utility to operate object stored in plasma server
@@ -22,25 +20,20 @@ import java.nio.ByteBuffer;
 public class PlasmaUtils {
 
   private static MyPlasmaClient client = MyPlasmaClientHolder.get();
-  public static final int DEFAULT_BUFFER_SIZE = 4096;
 
   public static boolean contains(String objectId) {
-    int num = client.getChildObjectNumber(objectId);
+    // TODO
+    int num = -1;
     return num > 0;
   }
 
   public static void remove(String objectId) {
-    int num = client.getChildObjectNumber(objectId);
+    // TODO
+    int num = -1;
     for (int i = 0; i < num; i++) {
-      ChildObjectId childObjectId = new ChildObjectId(objectId, i);
+      PlasmaObjectId childObjectId = new PlasmaObjectId(objectId, i);
       client.release(childObjectId.toBytes());
       client.delete(childObjectId.toBytes());
     }
-    client.delete(client.paddingParentObjectId(objectId).getBytes());
-  }
-
-  public static ByteBuffer getObjAsByteBuffer(String objectId) {
-    // TODO: previous implementation will have some oom issue
-    return null;
   }
 }

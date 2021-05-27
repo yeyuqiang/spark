@@ -18,7 +18,7 @@
 package org.apache.spark.shuffle
 
 import org.apache.spark.network.buffer.ManagedBuffer
-import org.apache.spark.storage.{BlockId, BlockManager}
+import org.apache.spark.storage.BlockId
 
 private[spark]
 /**
@@ -28,9 +28,6 @@ private[spark]
  * implementations when shuffle data is retrieved.
  */
 trait ShuffleBlockResolver {
-
-  var _blockManager: BlockManager
-
   type ShuffleId = Int
 
   /**
@@ -42,8 +39,6 @@ trait ShuffleBlockResolver {
    * If the data for that block is not available, throws an unspecified exception.
    */
   def getBlockData(blockId: BlockId, dirs: Option[Array[String]] = None): ManagedBuffer
-
-  def removeDataByMap(shuffleId: Int, mapId: Long): Unit
 
   def stop(): Unit
 }

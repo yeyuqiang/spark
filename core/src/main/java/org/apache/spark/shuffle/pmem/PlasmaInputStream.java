@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.io.pmem;
+package org.apache.spark.shuffle.pmem;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -35,8 +35,8 @@ public class PlasmaInputStream extends InputStream {
    * Initialize plasma client.
    * Make sure the given buffer size for input stream is equal to the output stream's
    *
-   * @param parentObjectId  parent object id
-   * @param bufferSize buffer size
+   * @param parentObjectId parent object id
+   * @param bufferSize     buffer size
    */
   public PlasmaInputStream(String parentObjectId, int bufferSize) {
     this.bufferSize = bufferSize;
@@ -54,13 +54,13 @@ public class PlasmaInputStream extends InputStream {
    * @param parentObjectId
    */
   public PlasmaInputStream(String parentObjectId) {
-    this(parentObjectId, PlasmaUtils.DEFAULT_BUFFER_SIZE);
+    this(parentObjectId, PlasmaConf.DEFAULT_BUFFER_SIZE);
   }
 
   private boolean refill() {
     if (!buffer.hasRemaining()) {
       buffer.clear();
-      ByteBuffer bufFromPlasma = client.getChildObject(parentObjectId, currChildObjectNumber++);
+      ByteBuffer bufFromPlasma = client.readChunk(parentObjectId, currChildObjectNumber++);
       if (bufFromPlasma == null) {
         return false;
       }
@@ -72,7 +72,10 @@ public class PlasmaInputStream extends InputStream {
 
   @Override
   public int read() {
-    throw new UnsupportedOperationException("The method is not implemented");
+    if (!refill()) {
+      return -1;
+    }
+    return buffer.get() & 0xFF;
   }
 
   @Override

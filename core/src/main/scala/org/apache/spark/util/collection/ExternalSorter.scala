@@ -31,7 +31,6 @@ import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.serializer._
 import org.apache.spark.shuffle.ShufflePartitionPairsWriter
 import org.apache.spark.shuffle.api.{ShuffleMapOutputWriter, ShufflePartitionWriter}
-import org.apache.spark.shuffle.pmem.PlasmaBlockObjectWriter
 import org.apache.spark.storage.{BlockId, DiskBlockObjectWriter, ShuffleBlockId}
 import org.apache.spark.util.{Utils => TryUtils}
 
@@ -95,8 +94,7 @@ private[spark] class ExternalSorter[K, V, C](
     aggregator: Option[Aggregator[K, V, C]] = None,
     partitioner: Option[Partitioner] = None,
     ordering: Option[Ordering[K]] = None,
-    serializer: Serializer = SparkEnv.get.serializer,
-    plasmaBackendEnabled: Boolean = false)
+    serializer: Serializer = SparkEnv.get.serializer)
   extends Spillable[WritablePartitionedPairCollection[K, C]](context.taskMemoryManager())
   with Logging {
 
@@ -240,12 +238,8 @@ private[spark] class ExternalSorter[K, V, C](
    */
   override protected[this] def spill(collection: WritablePartitionedPairCollection[K, C]): Unit = {
     val inMemoryIterator = collection.destructiveSortedWritablePartitionedIterator(comparator)
-    if (plasmaBackendEnabled) {
-      spillMemoryIteratorToPlasma(inMemoryIterator)
-    } else {
-      val spillFile = spillMemoryIteratorToDisk(inMemoryIterator)
-      spills += spillFile
-    }
+    val spillFile = spillMemoryIteratorToDisk(inMemoryIterator)
+    spills += spillFile
   }
 
   /**
@@ -263,17 +257,6 @@ private[spark] class ExternalSorter[K, V, C](
         buffer = null
       }
       isSpilled
-    }
-  }
-
-  private[this] def spillMemoryIteratorToPlasma(inMemoryIterator: WritablePartitionedIterator)
-      : Unit = {
-    val (blockId, spillFile) = diskBlockManager.createTempShuffleBlock()
-    val writer: PlasmaBlockObjectWriter =
-      blockManager.getPlasmaWriter(blockId, spillFile, serInstance)
-
-    while (inMemoryIterator.hasNext) {
-      inMemoryIterator.writeNext(writer)
     }
   }
 

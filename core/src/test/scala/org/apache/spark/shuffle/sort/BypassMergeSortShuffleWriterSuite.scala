@@ -141,8 +141,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
       0L, // MapId
       conf,
       taskContext.taskMetrics().shuffleWriteMetrics,
-      shuffleExecutorComponents,
-      false)
+      shuffleExecutorComponents)
 
     writer.write(Iterator.empty)
     writer.stop( /* success = */ true)
@@ -168,8 +167,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
         0L, // MapId
         transferConf,
         taskContext.taskMetrics().shuffleWriteMetrics,
-        shuffleExecutorComponents,
-        false)
+        shuffleExecutorComponents)
       writer.write(records)
       writer.stop( /* success = */ true)
       assert(temporaryFilesCreated.nonEmpty)
@@ -204,8 +202,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
       0L, // MapId
       conf,
       taskContext.taskMetrics().shuffleWriteMetrics,
-      shuffleExecutorComponents,
-      false)
+      shuffleExecutorComponents)
 
     intercept[SparkException] {
       writer.write(records)
@@ -226,8 +223,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
       0L, // MapId
       conf,
       taskContext.taskMetrics().shuffleWriteMetrics,
-      shuffleExecutorComponents,
-      false)
+      shuffleExecutorComponents)
     intercept[SparkException] {
       writer.write((0 until 100000).iterator.map(i => {
         if (i == 99990) {

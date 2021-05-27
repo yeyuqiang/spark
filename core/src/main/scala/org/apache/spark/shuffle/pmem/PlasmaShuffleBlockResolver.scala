@@ -17,14 +17,9 @@
 
 package org.apache.spark.shuffle.pmem
 
-import java.io.OutputStream
-
-import org.apache.spark.{SparkConf, SparkEnv}
+import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.io.pmem.PlasmaInputStream
-import org.apache.spark.io.pmem.PlasmaOutputStream
 import org.apache.spark.network.buffer.ManagedBuffer
-import org.apache.spark.network.netty.SparkTransportConf
 import org.apache.spark.shuffle.ShuffleBlockResolver
 import org.apache.spark.storage._
 
@@ -34,38 +29,15 @@ private[spark] class PlasmaShuffleBlockResolver(
   extends ShuffleBlockResolver
   with Logging {
 
-  private lazy val blockManager = Option(_blockManager).getOrElse(SparkEnv.get.blockManager)
-
-  private val transportConf = SparkTransportConf.fromSparkConf(conf, "shuffle")
-
-  override def getBlockData(blockId: BlockId, dirs: Option[Array[String]]): ManagedBuffer = {
-    val (shuffleId, mapId, startReduceId, endReduceId) = blockId match {
-      case id: ShuffleBlockId =>
-        (id.shuffleId, id.mapId, id.reduceId, id.reduceId + 1)
-      case batchId: ShuffleBlockBatchId =>
-        (batchId.shuffleId, batchId.mapId, batchId.startReduceId, batchId.endReduceId)
-      case _ =>
-        throw new IllegalArgumentException("unexpected shuffle block id format: " + blockId)
-    }
-    val resultBuffer = new PlasmaInputSteamManagedBuffer(transportConf);
-    for (idx <- startReduceId to endReduceId) {
-      val shuffleObjId = PlasmaShuffleUtil.generateShuffleId(shuffleId, mapId, idx)
-      val in = new PlasmaInputStream(shuffleObjId)
-      resultBuffer.addStream(shuffleObjId, in)
-    }
-    resultBuffer
+  override def getBlockData(
+      blockId: BlockId,
+      dirs: Option[Array[String]]): ManagedBuffer = {
+    new PlasmaInputManagedBuffer(blockId, 1L)
   }
 
-  override def stop(): Unit = {
+  override def stop(): Unit = {}
 
-  }
-
-  override def removeDataByMap(shuffleId: Int, mapId: Long): Unit = {
+  def removeDataByMap(shuffleId: Int, mapId: Long): Unit = {
     // ToDo: remove all the shuffle data
-  }
-
-  def getDataOutputStream(shuffleId: Int, mapId: Long, partitionId: Int): OutputStream = {
-    val shuffleObjId = PlasmaShuffleUtil.generateShuffleId(shuffleId, mapId, partitionId)
-    new PlasmaOutputStream(shuffleObjId)
   }
 }

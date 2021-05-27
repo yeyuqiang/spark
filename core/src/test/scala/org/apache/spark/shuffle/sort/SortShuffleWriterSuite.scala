@@ -74,10 +74,11 @@ class SortShuffleWriterSuite extends SparkFunSuite with SharedSparkContext with 
   test("write empty iterator") {
     val context = MemoryTestingUtils.fakeTaskContext(sc.env)
     val writer = new SortShuffleWriter[Int, Int, Int](
+      shuffleBlockResolver,
       shuffleHandle,
       mapId = 1,
       context,
-      shuffleExecutorComponents, false)
+      shuffleExecutorComponents)
     writer.write(Iterator.empty)
     writer.stop(success = true)
     val dataFile = shuffleBlockResolver.getDataFile(shuffleId, 1)
@@ -91,10 +92,11 @@ class SortShuffleWriterSuite extends SparkFunSuite with SharedSparkContext with 
     val context = MemoryTestingUtils.fakeTaskContext(sc.env)
     val records = List[(Int, Int)]((1, 2), (2, 3), (4, 4), (6, 5))
     val writer = new SortShuffleWriter[Int, Int, Int](
+      shuffleBlockResolver,
       shuffleHandle,
       mapId = 2,
       context,
-      shuffleExecutorComponents, false)
+      shuffleExecutorComponents)
     writer.write(records.toIterator)
     writer.stop(success = true)
     val dataFile = shuffleBlockResolver.getDataFile(shuffleId, 2)

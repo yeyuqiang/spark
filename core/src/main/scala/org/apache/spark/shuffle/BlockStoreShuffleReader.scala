@@ -33,7 +33,6 @@ private[spark] class BlockStoreShuffleReader[K, C](
     blocksByAddress: Iterator[(BlockManagerId, Seq[(BlockId, Long, Int)])],
     context: TaskContext,
     readMetrics: ShuffleReadMetricsReporter,
-    plasmaBackendEnabled: Boolean = false,
     serializerManager: SerializerManager = SparkEnv.get.serializerManager,
     blockManager: BlockManager = SparkEnv.get.blockManager,
     mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker,
@@ -81,8 +80,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT),
       SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT_MEMORY),
       readMetrics,
-      fetchContinuousBlocksInBatch,
-      plasmaBackendEnabled).toCompletionIterator
+      fetchContinuousBlocksInBatch).toCompletionIterator
 
     val serializerInstance = dep.serializer.newInstance()
 

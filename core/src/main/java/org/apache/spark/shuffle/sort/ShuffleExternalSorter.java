@@ -22,8 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.LinkedList;
 
-import org.apache.spark.io.pmem.PlasmaUtils;
-import org.apache.spark.shuffle.pmem.PlasmaBlockObjectWriter;
 import scala.Tuple2;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -109,8 +107,6 @@ final class ShuffleExternalSorter extends MemoryConsumer {
   @Nullable private MemoryBlock currentPage = null;
   private long pageCursor = -1;
 
-  private boolean plasmaBackendEnabled;
-
   ShuffleExternalSorter(
       TaskMemoryManager memoryManager,
       BlockManager blockManager,
@@ -118,8 +114,7 @@ final class ShuffleExternalSorter extends MemoryConsumer {
       int initialSize,
       int numPartitions,
       SparkConf conf,
-      ShuffleWriteMetricsReporter writeMetrics,
-      boolean plasmaBackendEnabled) {
+      ShuffleWriteMetricsReporter writeMetrics) {
     super(memoryManager,
       (int) Math.min(PackedRecordPointer.MAXIMUM_PAGE_SIZE_BYTES, memoryManager.pageSizeBytes()),
       memoryManager.getTungstenMemoryMode());
@@ -138,58 +133,6 @@ final class ShuffleExternalSorter extends MemoryConsumer {
     this.peakMemoryUsedBytes = getMemoryUsage();
     this.diskWriteBufferSize =
         (int) (long) conf.get(package$.MODULE$.SHUFFLE_DISK_WRITE_BUFFER_SIZE());
-    this.plasmaBackendEnabled = plasmaBackendEnabled;
-  }
-
-  private void writeSortedFile(boolean isLastFile) {
-    if (plasmaBackendEnabled) {
-      writeSortedFileToPlasma();
-    } else {
-      writeSortedFileToDisk(isLastFile);
-    }
-  }
-
-  private void writeSortedFileToPlasma() {
-    // This call performs the actual sort.
-    final ShuffleInMemorySorter.ShuffleSorterIterator sortedRecords =
-        inMemSorter.getSortedIterator();
-
-    // If there are no sorted records, so we don't need to create an empty spill file.
-    if (!sortedRecords.hasNext()) {
-      return;
-    }
-
-    final Tuple2<TempShuffleBlockId, File> spilledFileInfo =
-        blockManager.diskBlockManager().createTempShuffleBlock();
-    final File file = spilledFileInfo._2();
-    final TempShuffleBlockId blockId = spilledFileInfo._1();
-
-    final SerializerInstance ser = DummySerializerInstance.INSTANCE;
-
-    final byte[] plasmaBuffer = new byte[PlasmaUtils.DEFAULT_BUFFER_SIZE];
-
-    try (PlasmaBlockObjectWriter writer =
-             blockManager.getPlasmaWriter(blockId, file, ser)) {
-
-      final int uaoSize = UnsafeAlignedOffset.getUaoSize();
-      while (sortedRecords.hasNext()) {
-        sortedRecords.loadNext();
-        final long recordPointer = sortedRecords.packedRecordPointer.getRecordPointer();
-        final Object recordPage = taskMemoryManager.getPage(recordPointer);
-        final long recordOffsetInPage = taskMemoryManager.getOffsetInPage(recordPointer);
-        int dataRemaining = UnsafeAlignedOffset.getSize(recordPage, recordOffsetInPage);
-        long recordReadPosition = recordOffsetInPage + uaoSize; // skip over record length
-        while (dataRemaining > 0) {
-          final int toTransfer = Math.min(diskWriteBufferSize, dataRemaining);
-          Platform.copyMemory(
-              recordPage, recordReadPosition, plasmaBuffer, Platform.BYTE_ARRAY_OFFSET, toTransfer);
-          writer.write(plasmaBuffer, 0, toTransfer);
-          recordReadPosition += toTransfer;
-          dataRemaining -= toTransfer;
-        }
-      }
-    }
-
   }
 
   /**
@@ -200,7 +143,7 @@ final class ShuffleExternalSorter extends MemoryConsumer {
    *                   bytes written should be counted towards shuffle spill metrics rather than
    *                   shuffle write metrics.
    */
-  private void writeSortedFileToDisk(boolean isLastFile) {
+  private void writeSortedFile(boolean isLastFile) {
 
     // This call performs the actual sort.
     final ShuffleInMemorySorter.ShuffleSorterIterator sortedRecords =

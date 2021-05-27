@@ -2023,9 +2023,4 @@ package object config {
       .version("3.1.0")
       .doubleConf
       .createWithDefault(5)
-
-  private[spark] val PLASMA_SERVER_SOCKET = ConfigBuilder("spark.io.plasma.server.socket")
-    .version("3.1.0")
-    .stringConf
-    .createWithDefault("/tmp/plasma")
 }

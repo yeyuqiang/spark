@@ -14,12 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.io.pmem;
 
-import org.apache.spark.shuffle.pmem.PlasmaBlockObjectWriter;
+package org.apache.spark.shuffle.pmem;
+
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkEnv;
+import org.apache.spark.serializer.DeserializationStream;
+import org.apache.spark.serializer.JavaSerializer;
+import org.apache.spark.serializer.SerializerInstance;
+import org.apache.spark.serializer.SerializerManager;
 import org.apache.spark.storage.BlockId;
-import org.apache.spark.storage.PlasmaShuffleBlockId;
+import org.apache.spark.storage.ShuffleBlockId;
 import org.junit.*;
+import scala.Tuple2;
+import scala.collection.Iterator;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -30,32 +38,57 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assume.*;
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests functionality of {@link PlasmaInputStream} and {@link PlasmaOutputStream}
  */
-public class PlasmaOutputInputStreamSuite extends PlasmaTestSuite {
+public class PlasmaOutputInputStreamSuite {
 
   private final Random random = new Random();
 
   @BeforeClass
   public static void setUp() {
-    boolean isAvailable =  isPlasmaJavaAvailable();
+    mockSparkEnv();
+
+    boolean isAvailable = PlasmaStoreServer.isPlasmaJavaAvailable();
     assumeTrue("Please make sure libplasma_java.so is installed" +
         " under LD_LIBRARY_PATH or java.library.path", isAvailable);
 
-    boolean isExist = isPlasmaStoreExist();
+    boolean isExist = PlasmaStoreServer.isPlasmaStoreExist();
     assumeTrue("Please make sure plasma store server is installed " +
         "and added to the System PATH before run these unit tests", isExist);
     try {
-      boolean isStarted = startPlasmaStore();
+      boolean isStarted = PlasmaStoreServer.startPlasmaStore();
       assumeTrue("Failed to start plasma store server", isStarted);
     } catch (IOException ex1) {
       ex1.printStackTrace();
     } catch (InterruptedException ex2) {
       ex2.printStackTrace();
     }
-    mockSparkEnv();
+
+  }
+
+  @Test
+  public void basicPlasmaClientOperation() {
+    String blockId = "block_id_" + random.nextInt(10000000);
+    byte[] chunkToWrite = prepareByteBlockToWrite(1);
+
+    MyPlasmaClient client = MyPlasmaClientHolder.get();
+
+    client.writeChunk(blockId, 0, chunkToWrite);
+    ByteBuffer buf = client.readChunk(blockId, 0);
+    for (byte b : chunkToWrite) {
+      assertEquals(b, buf.get());
+    }
+
+    PlasmaObjectId objectId = new PlasmaObjectId(blockId, 0);
+    client.release(objectId.toBytes());
+    client.delete(objectId.toBytes());
+    ByteBuffer bufAfterDel = client.readChunk(blockId, 0);
+    assertNull(bufAfterDel);
+
   }
 
   @Test(expected = NullPointerException.class)
@@ -89,7 +122,7 @@ public class PlasmaOutputInputStreamSuite extends PlasmaTestSuite {
 
     ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
-    byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+    byte[] buffer = new byte[PlasmaConf.DEFAULT_BUFFER_SIZE];
     int len;
     while ((len = pis.read(buffer)) != -1) {
       bytesRead.put(buffer, 0, len);
@@ -109,7 +142,7 @@ public class PlasmaOutputInputStreamSuite extends PlasmaTestSuite {
 
     ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
-    byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+    byte[] buffer = new byte[PlasmaConf.DEFAULT_BUFFER_SIZE];
     while (pis.read(buffer) != -1) {
       bytesRead.put(buffer);
     }
@@ -133,7 +166,7 @@ public class PlasmaOutputInputStreamSuite extends PlasmaTestSuite {
 
           ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
           PlasmaInputStream pis = new PlasmaInputStream(blockId);
-          byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+          byte[] buffer = new byte[PlasmaConf.DEFAULT_BUFFER_SIZE];
           int len;
           while ((len = pis.read(buffer)) != -1) {
             bytesRead.put(buffer, 0, len);
@@ -152,27 +185,75 @@ public class PlasmaOutputInputStreamSuite extends PlasmaTestSuite {
   }
 
   @Test
-  public void testPlasmaObjectWriter() throws IOException {
-    BlockId blockId = new PlasmaShuffleBlockId(0, 0, 0);
-    PlasmaBlockObjectWriter writer = createWriter(blockId);
-    writer.write("key1", "value1");
-    // TODO: incomplete due to no append feature in plasma output stream
+  public void testPlasmaObjectWriteRead() throws IOException {
+    for (int i = 0; i < 10; i++) {
+      BlockId blockId = new ShuffleBlockId(0, i, 0);
+      PlasmaBlockObjectWriter writer = createWriter(blockId);
+      for (int j = 1; j < 100; j++) {
+        writer.write("key" + j, "value" + j);
+      }
+
+      Iterator<Tuple2<Object, Object>> iterator = createBuf(blockId).asKeyValueIterator();
+      int count = 1;
+      while (iterator.hasNext()) {
+        Tuple2<Object, Object> next = iterator.next();
+        String key = (String) next._1;
+        assertEquals("key" + count, key);
+        String value = (String) next._2;
+        assertEquals("value" + count, value);
+        count++;
+      }
+    }
   }
 
   @AfterClass
   public static void tearDown() {
     try {
       MyPlasmaClientHolder.close();
-      stopPlasmaStore();
-      deletePlasmaSocketFile();
+      PlasmaStoreServer.stopPlasmaStore();
+      PlasmaStoreServer.deletePlasmaSocketFile();
     } catch (InterruptedException ex) {
       ex.printStackTrace();
     }
   }
 
   private byte[] prepareByteBlockToWrite(double numOfBlock) {
-    byte[] bytesToWrite = new byte[(int) (DEFAULT_BUFFER_SIZE * numOfBlock)];
+    byte[] bytesToWrite = new byte[(int) (PlasmaConf.DEFAULT_BUFFER_SIZE * numOfBlock)];
     random.nextBytes(bytesToWrite);
     return bytesToWrite;
+  }
+
+  private static void mockSparkEnv() {
+    SparkConf conf = new SparkConf();
+    conf.set("spark.io.plasma.server.socket", "/tmp/PlasmaOutputInputStreamSuite-Socket-File");
+    conf.set("spark.io.plasma.server.dir", PlasmaConf.DEFAULT_STORE_SERVER_DIR_VALUE);
+    conf.set("spark.io.plasma.server.memory", PlasmaConf.DEFAULT_STORE_SERVER_MEMORY_VALUE);
+
+    SparkEnv mockEnv = mock(SparkEnv.class);
+    SparkEnv.set(mockEnv);
+    when(mockEnv.conf()).thenReturn(conf);
+  }
+
+  private PlasmaBlockObjectWriter createWriter(BlockId blockId) {
+    SparkConf conf = new SparkConf();
+    conf.set("spark.shuffle.compress", "false");
+    JavaSerializer serializer = new JavaSerializer(conf);
+    PlasmaBlockObjectWriter objectWriter = new PlasmaBlockObjectWriter(
+            new SerializerManager(serializer, conf),
+            serializer.newInstance(),
+            blockId);
+    return objectWriter;
+  }
+
+  private DeserializationStream createBuf(BlockId blockId) {
+    PlasmaInputStream pis = new PlasmaInputStream(blockId.name());
+    SparkConf conf = new SparkConf();
+    conf.set("spark.shuffle.compress", "false");
+    JavaSerializer serializer = new JavaSerializer(conf);
+    SerializerInstance serializerInstance = serializer.newInstance();
+    SerializerManager serializerManager = new SerializerManager(serializer, conf);
+    InputStream input = serializerManager.wrapStream(blockId, pis);
+
+    return serializerInstance.deserializeStream(input);
   }
 }

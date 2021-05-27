@@ -17,10 +17,9 @@
 
 package org.apache.spark.shuffle.pmem
 
-import java.io.{File, OutputStream}
+import java.io.OutputStream
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.io.pmem.PlasmaOutputStream
 import org.apache.spark.serializer._
 import org.apache.spark.storage.BlockId
 import org.apache.spark.util.Utils
@@ -32,8 +31,7 @@ import org.apache.spark.util.collection.PairsWriter
 private[spark] class PlasmaBlockObjectWriter(
     serializerManager: SerializerManager,
     serializerInstance: SerializerInstance,
-    blockId: BlockId,
-    val spillingFile: File)
+    blockId: BlockId)
   extends OutputStream
   with Logging
   with PairsWriter {
@@ -63,7 +61,6 @@ private[spark] class PlasmaBlockObjectWriter(
     streamOpen = true
     this
   }
-
 
   override def close(): Unit = {
     if (initialized) {

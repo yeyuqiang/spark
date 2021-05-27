@@ -207,43 +207,6 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     assert(blockManager.hostLocalDirManager.get.getCachedHostLocalDirs.size === 1)
   }
 
-  test("fetch blocks from plasma") {
-    val blockManager = createMockBlockManager()
-    val hostLocalBlocks = Map[BlockId, ManagedBuffer](
-      ShuffleBlockId(0, 1, 0) -> createMockManagedBuffer())
-
-    hostLocalBlocks.foreach { case (blockId, buf) =>
-      doReturn(buf)
-        .when(blockManager)
-        .getHostLocalShuffleData(meq(blockId.asInstanceOf[ShuffleBlockId]), any())
-    }
-    val hostLocalBmId = BlockManagerId("test-host-local-client-1", "test-local-host", 3)
-
-    val blocksByAddress = Seq[(BlockManagerId, Seq[(BlockId, Long, Int)])](
-      (hostLocalBmId, hostLocalBlocks.keys.map(blockId => (blockId, 1L, 1)).toSeq)
-    ).toIterator
-
-    val transfer = createMockTransfer(Map())
-    val taskContext = TaskContext.empty()
-    val metrics = taskContext.taskMetrics.createTempShuffleReadMetrics()
-    val iterator = new ShuffleBlockFetcherIterator(
-      taskContext,
-      transfer,
-      blockManager,
-      blocksByAddress,
-      (_, in) => in,
-      48 * 1024 * 1024,
-      Int.MaxValue,
-      Int.MaxValue,
-      Int.MaxValue,
-      true,
-      false,
-      metrics,
-      false,
-      true)
-    intercept[FetchFailedException] { iterator.next() }
-  }
-
   test("error during accessing host local dirs for executors") {
     val blockManager = createMockBlockManager()
     val hostLocalBlocks = Map[BlockId, ManagedBuffer](

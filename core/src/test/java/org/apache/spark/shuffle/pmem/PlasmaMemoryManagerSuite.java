@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.io.pmem;
+package org.apache.spark.shuffle.pmem;
 
 import org.junit.Test;
 

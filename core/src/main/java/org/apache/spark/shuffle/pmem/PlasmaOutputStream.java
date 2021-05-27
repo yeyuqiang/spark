@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.io.pmem;
+package org.apache.spark.shuffle.pmem;
 
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -31,13 +31,16 @@ public class PlasmaOutputStream extends OutputStream {
   private int currChildObjectNumber;
   private final ByteBuffer buffer;
 
+  private int numOfObjects = 0;
+  private long sizeOfObjects = 0;
+
   /**
    * Initialize output stream with a parent object id.
    * Initialize plasma client.
    * Initialize with a customize buffer size.
    *
-   * @param parentObjectId  parent object id
-   * @param bufferSize      buffer size
+   * @param parentObjectId parent object id
+   * @param bufferSize     buffer size
    */
   public PlasmaOutputStream(String parentObjectId, int bufferSize) {
     if (bufferSize < 0) {
@@ -55,7 +58,7 @@ public class PlasmaOutputStream extends OutputStream {
    * @param parentObjectId
    */
   public PlasmaOutputStream(String parentObjectId) {
-    this(parentObjectId, PlasmaUtils.DEFAULT_BUFFER_SIZE);
+    this(parentObjectId, PlasmaConf.DEFAULT_BUFFER_SIZE);
   }
 
   @Override
@@ -92,18 +95,30 @@ public class PlasmaOutputStream extends OutputStream {
   }
 
   private void writeToPlasma() {
+    numOfObjects++;
     if (buffer.hasRemaining()) {
-      client.writeChildObject(parentObjectId, currChildObjectNumber, shrinkLastObjBuffer());
+      client.writeChunk(parentObjectId, currChildObjectNumber, shrinkLastObjBuffer());
     } else {
-      client.writeChildObject(parentObjectId, currChildObjectNumber, buffer.array());
+      sizeOfObjects += PlasmaConf.DEFAULT_BUFFER_SIZE;
+      client.writeChunk(parentObjectId, currChildObjectNumber, buffer.array());
     }
   }
 
   private byte[] shrinkLastObjBuffer() {
+    sizeOfObjects += buffer.position();
+
     byte[] lastObjBytes = new byte[buffer.position()];
     buffer.flip();
     buffer.get(lastObjBytes);
+
     return lastObjBytes;
+  }
+
+  public PlasmaMetaData commitAndGetMetaData() {
+    PlasmaMetaData metaData = new PlasmaMetaData(numOfObjects, sizeOfObjects);
+    PlasmaObjectId metaDataId = new PlasmaObjectId(parentObjectId, -1);
+    client.put(metaDataId.toBytes(), metaData.getBytes(), null);
+    return metaData;
   }
 
 }

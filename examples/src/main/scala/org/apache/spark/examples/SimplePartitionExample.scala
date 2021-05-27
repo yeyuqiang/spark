@@ -14,23 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.examples.sql
+package org.apache.spark.examples
 
-// $example on:init_session$
+// import org.apache.log4j.{Level, Logger}
+
+import org.apache.spark.HashPartitioner
 import org.apache.spark.sql.SparkSession
-// $example off:init_session$
 
-object SparkSQLWithGroupBy {
-
-  // $example on:create_ds$
-  case class Person(name: String, age: Long)
-  // $example off:create_ds$
-
+object SimplePartitionExample {
   def main(args: Array[String]): Unit = {
-    // $example on:init_session$
+    // scalastyle:off println
+//    Logger.getLogger("org").setLevel(Level.OFF)
     val spark = SparkSession
-      .builder()
-      .appName("Spark SQL basic example")
+      .builder
+      .appName("Simple Partition Example")
       .config("spark.shuffle.manager", "org.apache.spark.shuffle.pmem.PlasmaShuffleManager")
       .config("spark.io.plasma.server.socket", "/tmp/plasma")
       .config("spark.io.plasma.server.dir", "/dev/shm")
@@ -38,18 +35,21 @@ object SparkSQLWithGroupBy {
       .config("spark.shuffle.compress", "false")
       .master("local")
       .getOrCreate()
+    val sc = spark.sparkContext
 
-    runBasicDataFrameExample(spark)
+    val data1 = Array[(Int, Char)](
+      (1, 'a'), (2, 'b'),
+      (3, 'c'), (4, 'd'),
+      (5, 'e'), (3, 'f'),
+      (2, 'g'), (1, 'h'))
+    val rdd1 = sc.parallelize(data1, 3)
+    val partitionedRDD = rdd1.partitionBy(new HashPartitioner(3))
 
-    spark.stop()
-  }
-
-  private def runBasicDataFrameExample(spark: SparkSession): Unit = {
-    // $example on:create_df$
-    val df = spark.read.json("examples/src/main/resources/people.json")
-    df.createOrReplaceTempView("people")
-    val sqlDF = spark.sql("SELECT SUM(age) FROM people GROUP BY age")
-    sqlDF.show()
+    println("----- partitionedRDD -----")
+    partitionedRDD.mapPartitionsWithIndex((pid, iter) => {
+      iter.map(value => "PID: " + pid + ", value: " + value)
+    }).foreach(println)
+//    System.in.read()
   }
 
 }
