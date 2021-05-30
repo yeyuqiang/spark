@@ -28,7 +28,7 @@ public class PlasmaObjectId {
       throw new IllegalArgumentException("Each object in the Plasma store" +
           " should be associated with a unique ID which is a string of 20 length");
     } else {
-      this.objectId = StringUtils.rightPad(parentObjectId, 20 - indexDigitNum, "0") + index;
+      this.objectId = StringUtils.rightPad(parentObjectId, 20 - indexDigitNum, "*") + index;
     }
   }
 

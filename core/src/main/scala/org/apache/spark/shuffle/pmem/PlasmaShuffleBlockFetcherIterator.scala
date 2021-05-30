@@ -157,20 +157,20 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
 
     val fallback = FallbackStorage.FALLBACK_BLOCK_MANAGER_ID.executorId
     for ((address, blockInfos) <- blocksByAddress) {
-      if (Seq(blockManager.blockManagerId.executorId, fallback).contains(address.executorId)) {
-        checkBlockSizes(blockInfos)
-        val fetchBlockInfos = blockInfos.map(
-          info => PlasmaFetchBlockInfo(info._1, info._2, info._3)
-        )
-        numBlocksToFetch += fetchBlockInfos.size
-        localBlocks ++= fetchBlockInfos.map(info => (info.blockId, info.mapIndex))
-        localBlockBytes += fetchBlockInfos.map(_.size).sum
-      } else {
-        remoteBlockBytes += blockInfos.map(_._2).sum
-        collectFetchRequests(address, blockInfos, collectedRemoteRequests)
-      }
-//      remoteBlockBytes += blockInfos.map(_._2).sum
-//      collectFetchRequests(address, blockInfos, collectedRemoteRequests)
+//      if (Seq(blockManager.blockManagerId.executorId, fallback).contains(address.executorId)) {
+//        checkBlockSizes(blockInfos)
+//        val fetchBlockInfos = blockInfos.map(
+//          info => PlasmaFetchBlockInfo(info._1, info._2, info._3)
+//        )
+//        numBlocksToFetch += fetchBlockInfos.size
+//        localBlocks ++= fetchBlockInfos.map(info => (info.blockId, info.mapIndex))
+//        localBlockBytes += fetchBlockInfos.map(_.size).sum
+//      } else {
+//        remoteBlockBytes += blockInfos.map(_._2).sum
+//        collectFetchRequests(address, blockInfos, collectedRemoteRequests)
+//      }
+      remoteBlockBytes += blockInfos.map(_._2).sum
+      collectFetchRequests(address, blockInfos, collectedRemoteRequests)
     }
     val numRemoteBlocks = collectedRemoteRequests.map(_.blocks.size).sum
     val totalBytes = localBlockBytes + remoteBlockBytes

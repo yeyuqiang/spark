@@ -15,7 +15,6 @@
 package org.apache.spark.shuffle.pmem;
 
 import org.apache.arrow.plasma.PlasmaClient;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.SparkEnv;
 
 import java.nio.ByteBuffer;
@@ -51,8 +50,6 @@ public class MyPlasmaClient extends PlasmaClient {
     super.finalize();
   }
 }
-
-
 
 /**
  * Hold a global plasma client instance.

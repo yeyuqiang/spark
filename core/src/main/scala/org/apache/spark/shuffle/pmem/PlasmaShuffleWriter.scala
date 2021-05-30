@@ -58,8 +58,12 @@ private[spark] class PlasmaShuffleWriter[K, V, C](
       val value = record._2
       val partitionNum = partitioner.getPartition(key)
       plasmaOutputStreamArray(partitionNum).write(key, value)
-      partitionLengths(partitionNum) = partitionLengths(partitionNum) + 1
     }
+
+    (0 until numPartitions).toArray.map(partitionId =>
+      partitionLengths(partitionId) = plasmaOutputStreamArray(partitionId).getPartitionLength()
+    )
+
     mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths, mapId)
   }
 
