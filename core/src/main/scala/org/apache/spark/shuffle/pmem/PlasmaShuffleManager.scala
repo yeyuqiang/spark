@@ -17,14 +17,11 @@
 
 package org.apache.spark.shuffle.pmem
 
-import java.util.concurrent.ConcurrentHashMap
-
 import org.apache.spark.{ShuffleDependency, SparkConf, SparkEnv, TaskContext}
 import org.apache.spark.internal.Logging
 // import org.apache.spark.internal.config.BLOCK_MANAGER_PORT
 // import org.apache.spark.network.pmem.PlasmaShuffleTransferService
 import org.apache.spark.shuffle._
-import org.apache.spark.util.collection.OpenHashSet
 
 private[spark] class PlasmaShuffleManager(conf: SparkConf)
   extends ShuffleManager with Logging {
@@ -40,9 +37,7 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
     }
   }
 
-  private[this] val taskIdMapsForShuffle = new ConcurrentHashMap[Int, OpenHashSet[Long]]()
-
-  override val shuffleBlockResolver = new PlasmaShuffleBlockResolver(conf)
+  override val shuffleBlockResolver = new PlasmaShuffleBlockResolver()
 
   override def registerShuffle[K, V, C](
       shuffleId: Int,
@@ -62,10 +57,6 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
       handle: ShuffleHandle,
       mapId: Long, context: TaskContext,
       metrics: ShuffleWriteMetricsReporter): ShuffleWriter[K, V] = {
-    val mapTaskIds = taskIdMapsForShuffle.computeIfAbsent(
-      handle.shuffleId, _ => new OpenHashSet[Long](16))
-    mapTaskIds.synchronized { mapTaskIds.add(context.taskAttemptId()) }
-
     val env = SparkEnv.get
     val serializerManager = env.serializerManager
 
@@ -96,17 +87,11 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
   }
 
   override def unregisterShuffle(shuffleId: Int): Boolean = {
-    Option(taskIdMapsForShuffle.remove(shuffleId)).foreach { mapTaskIds =>
-      mapTaskIds.iterator.foreach { mapTaskId =>
-        shuffleBlockResolver.removeDataByMap(shuffleId, mapTaskId)
-      }
-    }
     true
   }
 
   override def stop(): Unit = {
-    PlasmaStoreServer.stopPlasmaStore()
-    logInfo("Plasma Store Server stopped.")
+    shuffleBlockResolver.removeDataByMap()
     shuffleBlockResolver.stop()
   }
 }
