@@ -19,8 +19,6 @@ package org.apache.spark.shuffle.pmem
 
 import org.apache.spark.{ShuffleDependency, SparkConf, SparkEnv, TaskContext}
 import org.apache.spark.internal.Logging
-// import org.apache.spark.internal.config.BLOCK_MANAGER_PORT
-// import org.apache.spark.network.pmem.PlasmaShuffleTransferService
 import org.apache.spark.shuffle._
 
 private[spark] class PlasmaShuffleManager(conf: SparkConf)
@@ -41,17 +39,9 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
 
   override def registerShuffle[K, V, C](
       shuffleId: Int,
-      dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
-//    val env = SparkEnv.get
-//    new PlasmaShuffleTransferService(
-//      conf,
-//      env.securityManager,
-//      env.blockManager.blockManagerId.host,
-//      env.blockManager.blockManagerId.host,
-//      env.conf.get(BLOCK_MANAGER_PORT)).init(env.blockManager)
+      dependency: ShuffleDependency[K, V, C]): ShuffleHandle =
 
     new PlasmaShuffleHandle(shuffleId, dependency)
-  }
 
   override def getWriter[K, V](
       handle: ShuffleHandle,

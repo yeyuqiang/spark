@@ -40,8 +40,8 @@ private[spark] class PlasmaShuffleBlockResolver(
   }
 
   override def stop(): Unit = {
+    // Stop plasma store server for easy test
     PlasmaStoreServer.stopPlasmaStore()
-    logInfo("Plasma Store Server stopped.")
   }
 
   def removeDataByMap(): Unit = {
