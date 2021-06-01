@@ -19,6 +19,7 @@ package org.apache.spark.shuffle.pmem;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
+import org.apache.spark.network.buffer.ManagedBuffer;
 import org.apache.spark.serializer.DeserializationStream;
 import org.apache.spark.serializer.JavaSerializer;
 import org.apache.spark.serializer.SerializerInstance;
@@ -219,6 +220,27 @@ public class PlasmaOutputInputStreamSuite {
         count++;
       }
     }
+  }
+
+  @Test
+  public void testPlasmaShuffleManagedBuffer() throws IOException {
+    ShuffleBlockId blockId = new ShuffleBlockId(0, 0, 0);
+    byte[] bytesWrite = prepareByteBlockToWrite(1);
+    PlasmaOutputStream pos = new PlasmaOutputStream(blockId.name());
+    pos.write(bytesWrite);
+
+    pos.commitAndGetMetaData();
+    assertEquals(1, PlasmaUtils.getNumberOfObjects(blockId.name()));
+    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE, PlasmaUtils.getSizeOfObjects(blockId.name()));
+
+    long size = PlasmaUtils.getSizeOfObjects(blockId.name());
+    ManagedBuffer managedBuffer = new PlasmaShuffleManagedBuffer(blockId, size);
+    ByteBuffer nioByteBuffer = managedBuffer.nioByteBuffer();
+
+    assertArrayEquals(bytesWrite, nioByteBuffer.array());
+
+    PlasmaUtils.remove(blockId.name());
+    assertFalse(PlasmaUtils.contains(blockId.name()));
   }
 
   @AfterClass

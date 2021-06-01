@@ -55,16 +55,7 @@ private[spark] class PlasmaShuffleManagedBuffer(
   }
 
   override def convertToNetty(): AnyRef = {
-    val in = createInputStream()
-    val readBuf = ByteBuffer.allocate(size().toInt)
-    val buf = new Array[Byte](PlasmaConf.DEFAULT_BUFFER_SIZE)
-    var len = 0
-    while ( {
-      len = in.read(buf);
-      len
-    } != -1) {
-      readBuf.put(buf, 0, len)
-    }
-    Unpooled.wrappedBuffer(readBuf)
+    val buf = nioByteBuffer()
+    Unpooled.wrappedBuffer(buf)
   }
 }
