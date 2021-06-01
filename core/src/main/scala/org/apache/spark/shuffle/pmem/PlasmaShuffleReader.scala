@@ -23,7 +23,7 @@ import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
 import org.apache.spark.shuffle.ShuffleReader
 import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerId}
 
-private[spark] class PlasmaStoreShuffleReader[K, C](
+private[spark] class PlasmaShuffleReader[K, C](
     handle: PlasmaShuffleHandle[K, _, C],
     blocksByAddress: Iterator[(BlockManagerId, Seq[(BlockId, Long, Int)])],
     context: TaskContext,

@@ -344,7 +344,7 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
             buf.createInputStream()
           } catch {
             case e: IOException =>
-              assert(buf.isInstanceOf[PlasmaInputManagedBuffer])
+              assert(buf.isInstanceOf[PlasmaShuffleManagedBuffer])
               e match {
                 case ce: ClosedByInterruptException =>
                   logError("Failed to create input stream from local block, " +
@@ -359,7 +359,7 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
           } catch {
             case e: IOException =>
               buf.release()
-              if (buf.isInstanceOf[PlasmaInputManagedBuffer]
+              if (buf.isInstanceOf[PlasmaShuffleManagedBuffer]
                 || corruptedBlocks.contains(blockId)) {
                 throwFetchFailedException(blockId, mapIndex, address, e)
               } else {

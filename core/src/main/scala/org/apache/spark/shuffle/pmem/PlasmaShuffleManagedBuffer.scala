@@ -25,7 +25,7 @@ import io.netty.buffer.Unpooled
 import org.apache.spark.network.buffer.ManagedBuffer
 import org.apache.spark.storage.BlockId
 
-private[spark] class PlasmaInputManagedBuffer(
+private[spark] class PlasmaShuffleManagedBuffer(
     blockId: BlockId,
     size: Long)
   extends ManagedBuffer {

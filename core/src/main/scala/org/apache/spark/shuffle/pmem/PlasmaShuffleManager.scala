@@ -72,7 +72,7 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
     val blockByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByExecutorId(
       handle.shuffleId, startMapIndex, endMapIndex, startPartition, endPartition
     )
-    new PlasmaStoreShuffleReader(
+    new PlasmaShuffleReader(
       handle.asInstanceOf[PlasmaShuffleHandle[K, _, C]], blockByAddress, context, conf)
   }
 

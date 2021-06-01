@@ -36,7 +36,7 @@ private[spark] class PlasmaShuffleBlockResolver(
       dirs: Option[Array[String]]): ManagedBuffer = {
     blockIds += blockId.name
     val length = PlasmaUtils.getSizeOfObjects(blockId.name)
-    new PlasmaInputManagedBuffer(blockId, length)
+    new PlasmaShuffleManagedBuffer(blockId, length)
   }
 
   override def stop(): Unit = {
