@@ -51,6 +51,7 @@ private[spark] class PlasmaShuffleManagedBuffer(
     } != -1) {
       readBuf.put(buf, 0, len)
     }
+    readBuf.flip()
     readBuf
   }
 

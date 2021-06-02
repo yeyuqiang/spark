@@ -33,7 +33,7 @@ import org.apache.spark.network.buffer.ManagedBuffer
 import org.apache.spark.network.shuffle._
 import org.apache.spark.shuffle.FetchFailedException
 import org.apache.spark.storage.{BlockException, BlockId, BlockManager, BlockManagerId}
-import org.apache.spark.storage.{FallbackStorage, ShuffleBlockBatchId, ShuffleBlockId}
+import org.apache.spark.storage.{FallbackStorage, ShuffleBlockId}
 import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
 
 private[spark] final class PlasmaShuffleBlockFetcherIterator(
@@ -468,8 +468,6 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
     blockId match {
       case ShuffleBlockId(shufId, mapId, reduceId) =>
         throw new FetchFailedException(address, shufId, mapId, mapIndex, reduceId, e)
-      case ShuffleBlockBatchId(shuffleId, mapId, startReduceId, _) =>
-        throw new FetchFailedException(address, shuffleId, mapId, mapIndex, startReduceId, e)
       case _ =>
         throw new SparkException(
           "Failed to get block " + blockId + ", which is not a shuffle block", e)
