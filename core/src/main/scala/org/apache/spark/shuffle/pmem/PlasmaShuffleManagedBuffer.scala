@@ -20,16 +20,18 @@ package org.apache.spark.shuffle.pmem
 import java.io.InputStream
 import java.nio.ByteBuffer
 
+import io.netty.buffer.Unpooled
+
 import org.apache.spark.network.buffer.ManagedBuffer
 import org.apache.spark.storage.BlockId
 
-private[spark] class PlasmaInputManagedBuffer(
+private[spark] class PlasmaShuffleManagedBuffer(
     blockId: BlockId,
-    kvNum: Long)
+    size: Long)
   extends ManagedBuffer {
 
   override def size(): Long = {
-    kvNum
+    size
   }
 
   override def createInputStream(): InputStream = new PlasmaInputStream(blockId.name)
@@ -38,7 +40,23 @@ private[spark] class PlasmaInputManagedBuffer(
 
   override def release(): ManagedBuffer = this
 
-  override def nioByteBuffer(): ByteBuffer = throw new UnsupportedOperationException
+  override def nioByteBuffer(): ByteBuffer = {
+    val in = createInputStream()
+    val readBuf = ByteBuffer.allocate(size().toInt)
+    val buf = new Array[Byte](PlasmaConf.DEFAULT_BUFFER_SIZE)
+    var len = 0
+    while ( {
+      len = in.read(buf);
+      len
+    } != -1) {
+      readBuf.put(buf, 0, len)
+    }
+    readBuf.flip()
+    readBuf
+  }
 
-  override def convertToNetty(): AnyRef = throw new UnsupportedOperationException
+  override def convertToNetty(): AnyRef = {
+    val buf = nioByteBuffer()
+    Unpooled.wrappedBuffer(buf)
+  }
 }

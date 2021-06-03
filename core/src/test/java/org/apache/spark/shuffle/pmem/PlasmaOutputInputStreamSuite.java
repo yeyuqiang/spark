@@ -19,6 +19,7 @@ package org.apache.spark.shuffle.pmem;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
+import org.apache.spark.network.buffer.ManagedBuffer;
 import org.apache.spark.serializer.DeserializationStream;
 import org.apache.spark.serializer.JavaSerializer;
 import org.apache.spark.serializer.SerializerInstance;
@@ -84,7 +85,6 @@ public class PlasmaOutputInputStreamSuite {
     }
 
     PlasmaObjectId objectId = new PlasmaObjectId(blockId, 0);
-    client.release(objectId.toBytes());
     client.delete(objectId.toBytes());
     ByteBuffer bufAfterDel = client.readChunk(blockId, 0);
     assertNull(bufAfterDel);
@@ -104,6 +104,10 @@ public class PlasmaOutputInputStreamSuite {
     PlasmaOutputStream pos = new PlasmaOutputStream(blockId);
     pos.write(bytesWrite);
 
+    pos.commitAndGetMetaData();
+    assertEquals(1, PlasmaUtils.getNumberOfObjects(blockId));
+    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE, PlasmaUtils.getSizeOfObjects(blockId));
+
     byte[] bytesRead = new byte[bytesWrite.length];
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
     pis.read(bytesRead);
@@ -119,6 +123,10 @@ public class PlasmaOutputInputStreamSuite {
     byte[] bytesWrite = prepareByteBlockToWrite(2.7);
     PlasmaOutputStream pos = new PlasmaOutputStream(blockId);
     pos.write(bytesWrite);
+
+    pos.commitAndGetMetaData();
+    assertEquals(3, PlasmaUtils.getNumberOfObjects(blockId));
+    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE * 2.7, PlasmaUtils.getSizeOfObjects(blockId), 1);
 
     ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
@@ -139,6 +147,10 @@ public class PlasmaOutputInputStreamSuite {
     byte[] bytesWrite = prepareByteBlockToWrite(2);
     PlasmaOutputStream pos = new PlasmaOutputStream(blockId);
     pos.write(bytesWrite);
+
+    pos.commitAndGetMetaData();
+    assertEquals(2, PlasmaUtils.getNumberOfObjects(blockId));
+    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE * 2, PlasmaUtils.getSizeOfObjects(blockId));
 
     ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
@@ -163,6 +175,10 @@ public class PlasmaOutputInputStreamSuite {
           byte[] bytesWrite = prepareByteBlockToWrite(5.7);
           PlasmaOutputStream pos = new PlasmaOutputStream(blockId);
           pos.write(bytesWrite);
+
+          pos.commitAndGetMetaData();
+          assertEquals(6, PlasmaUtils.getNumberOfObjects(blockId));
+          assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE * 5.7, PlasmaUtils.getSizeOfObjects(blockId), 1);
 
           ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
           PlasmaInputStream pis = new PlasmaInputStream(blockId);
@@ -204,6 +220,27 @@ public class PlasmaOutputInputStreamSuite {
         count++;
       }
     }
+  }
+
+  @Test
+  public void testPlasmaShuffleManagedBuffer() throws IOException {
+    ShuffleBlockId blockId = new ShuffleBlockId(99, 99, 99);
+    byte[] bytesWrite = prepareByteBlockToWrite(1);
+    PlasmaOutputStream pos = new PlasmaOutputStream(blockId.name());
+    pos.write(bytesWrite);
+
+    pos.commitAndGetMetaData();
+    assertEquals(1, PlasmaUtils.getNumberOfObjects(blockId.name()));
+    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE, PlasmaUtils.getSizeOfObjects(blockId.name()));
+
+    long size = PlasmaUtils.getSizeOfObjects(blockId.name());
+    ManagedBuffer managedBuffer = new PlasmaShuffleManagedBuffer(blockId, size);
+    ByteBuffer nioByteBuffer = managedBuffer.nioByteBuffer();
+
+    assertArrayEquals(bytesWrite, nioByteBuffer.array());
+
+    PlasmaUtils.remove(blockId.name());
+    assertFalse(PlasmaUtils.contains(blockId.name()));
   }
 
   @AfterClass

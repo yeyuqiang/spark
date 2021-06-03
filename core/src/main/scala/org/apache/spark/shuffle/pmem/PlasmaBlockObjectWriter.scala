@@ -97,6 +97,13 @@ private[spark] class PlasmaBlockObjectWriter(
     os.write(kvBytes, offs, len)
   }
 
+  def getPartitionLength(): Long = {
+    if (!initialized) {
+      initialize()
+    }
+    pos.commitAndGetMetaData().getTotalSize;
+  }
+
 }
 
 

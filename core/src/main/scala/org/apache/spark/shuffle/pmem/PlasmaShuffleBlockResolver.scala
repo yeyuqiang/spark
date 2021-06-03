@@ -17,27 +17,36 @@
 
 package org.apache.spark.shuffle.pmem
 
-import org.apache.spark.SparkConf
+import scala.collection.mutable.ArrayBuffer
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.ManagedBuffer
 import org.apache.spark.shuffle.ShuffleBlockResolver
 import org.apache.spark.storage._
 
 private[spark] class PlasmaShuffleBlockResolver(
-  conf: SparkConf,
   var _blockManager: BlockManager = null)
   extends ShuffleBlockResolver
   with Logging {
 
+  val blockIds = new ArrayBuffer[String]()
+
   override def getBlockData(
       blockId: BlockId,
       dirs: Option[Array[String]]): ManagedBuffer = {
-    new PlasmaInputManagedBuffer(blockId, 1L)
+    blockIds += blockId.name
+    val length = PlasmaUtils.getSizeOfObjects(blockId.name)
+    new PlasmaShuffleManagedBuffer(blockId, length)
   }
 
-  override def stop(): Unit = {}
+  override def stop(): Unit = {
+    // Stop plasma store server for easy test
+    PlasmaStoreServer.stopPlasmaStore()
+  }
 
-  def removeDataByMap(shuffleId: Int, mapId: Long): Unit = {
-    // ToDo: remove all the shuffle data
+  def removeDataByMap(): Unit = {
+    blockIds.toArray.foreach(blockId => {
+      PlasmaUtils.remove(blockId)
+    })
   }
 }

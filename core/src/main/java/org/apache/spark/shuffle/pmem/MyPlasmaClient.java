@@ -15,7 +15,6 @@
 package org.apache.spark.shuffle.pmem;
 
 import org.apache.arrow.plasma.PlasmaClient;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.SparkEnv;
 
 import java.nio.ByteBuffer;
@@ -40,6 +39,9 @@ public class MyPlasmaClient extends PlasmaClient {
   public ByteBuffer readChunk(String parentObjectId, int index) {
     PlasmaObjectId childObjectId = new PlasmaObjectId(parentObjectId, index);
     ByteBuffer buffer = getObjAsByteBuffer(childObjectId.toBytes(), 0, false);
+    if (buffer != null) {
+      release(childObjectId.toBytes());
+    }
     return buffer;
   }
 
@@ -48,8 +50,6 @@ public class MyPlasmaClient extends PlasmaClient {
     super.finalize();
   }
 }
-
-
 
 /**
  * Hold a global plasma client instance.

@@ -14,6 +14,8 @@
 
 package org.apache.spark.shuffle.pmem;
 
+import java.nio.ByteBuffer;
+
 /**
  * Utility to operate object stored in plasma server
  */
@@ -21,19 +23,34 @@ public class PlasmaUtils {
 
   private static MyPlasmaClient client = MyPlasmaClientHolder.get();
 
-  public static boolean contains(String objectId) {
-    // TODO
-    int num = -1;
+  public static boolean contains(String blockId) {
+    int num = getNumberOfObjects(blockId);
     return num > 0;
   }
 
-  public static void remove(String objectId) {
-    // TODO
-    int num = -1;
+  public static void remove(String blockId) {
+    int num = getNumberOfObjects(blockId);
     for (int i = 0; i < num; i++) {
-      PlasmaObjectId childObjectId = new PlasmaObjectId(objectId, i);
-      client.release(childObjectId.toBytes());
+      PlasmaObjectId childObjectId = new PlasmaObjectId(blockId, i);
       client.delete(childObjectId.toBytes());
     }
+    PlasmaObjectId metaDataId = new PlasmaObjectId(blockId, -1);
+    client.delete(metaDataId.toBytes());
+  }
+
+  public static int getNumberOfObjects(String blockId) {
+    ByteBuffer buffer = client.readChunk(blockId, -1);
+    if (buffer == null) return -1;
+
+    PlasmaMetaData metaData = new PlasmaMetaData(buffer);
+    return metaData.getTotalNumber();
+  }
+
+  public static long getSizeOfObjects(String blockId) {
+    ByteBuffer buffer = client.readChunk(blockId, -1);
+    if (buffer == null) return -1;
+
+    PlasmaMetaData metaData = new PlasmaMetaData(buffer);
+    return metaData.getTotalSize();
   }
 }

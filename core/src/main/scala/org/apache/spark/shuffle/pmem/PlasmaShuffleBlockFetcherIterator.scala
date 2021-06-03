@@ -32,7 +32,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.ManagedBuffer
 import org.apache.spark.network.shuffle._
 import org.apache.spark.shuffle.FetchFailedException
-import org.apache.spark.storage.{BlockException, BlockId, BlockManager, BlockManagerId, FallbackStorage, ShuffleBlockBatchId, ShuffleBlockId}
+import org.apache.spark.storage.{BlockException, BlockId, BlockManager, BlockManagerId}
+import org.apache.spark.storage.{FallbackStorage, ShuffleBlockId}
 import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
 
 private[spark] final class PlasmaShuffleBlockFetcherIterator(
@@ -169,8 +170,6 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
         remoteBlockBytes += blockInfos.map(_._2).sum
         collectFetchRequests(address, blockInfos, collectedRemoteRequests)
       }
-//      remoteBlockBytes += blockInfos.map(_._2).sum
-//      collectFetchRequests(address, blockInfos, collectedRemoteRequests)
     }
     val numRemoteBlocks = collectedRemoteRequests.map(_.blocks.size).sum
     val totalBytes = localBlockBytes + remoteBlockBytes
@@ -343,7 +342,7 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
             buf.createInputStream()
           } catch {
             case e: IOException =>
-              assert(buf.isInstanceOf[PlasmaInputManagedBuffer])
+              assert(buf.isInstanceOf[PlasmaShuffleManagedBuffer])
               e match {
                 case ce: ClosedByInterruptException =>
                   logError("Failed to create input stream from local block, " +
@@ -358,7 +357,7 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
           } catch {
             case e: IOException =>
               buf.release()
-              if (buf.isInstanceOf[PlasmaInputManagedBuffer]
+              if (buf.isInstanceOf[PlasmaShuffleManagedBuffer]
                 || corruptedBlocks.contains(blockId)) {
                 throwFetchFailedException(blockId, mapIndex, address, e)
               } else {
@@ -467,8 +466,6 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
     blockId match {
       case ShuffleBlockId(shufId, mapId, reduceId) =>
         throw new FetchFailedException(address, shufId, mapId, mapIndex, reduceId, e)
-      case ShuffleBlockBatchId(shuffleId, mapId, startReduceId, _) =>
-        throw new FetchFailedException(address, shuffleId, mapId, mapIndex, startReduceId, e)
       case _ =>
         throw new SparkException(
           "Failed to get block " + blockId + ", which is not a shuffle block", e)
