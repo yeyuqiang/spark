@@ -224,7 +224,7 @@ public class PlasmaOutputInputStreamSuite {
 
   @Test
   public void testPlasmaShuffleManagedBuffer() throws IOException {
-    ShuffleBlockId blockId = new ShuffleBlockId(0, 0, 0);
+    ShuffleBlockId blockId = new ShuffleBlockId(99, 99, 99);
     byte[] bytesWrite = prepareByteBlockToWrite(1);
     PlasmaOutputStream pos = new PlasmaOutputStream(blockId.name());
     pos.write(bytesWrite);

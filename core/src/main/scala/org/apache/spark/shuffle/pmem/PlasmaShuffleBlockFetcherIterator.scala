@@ -170,8 +170,6 @@ private[spark] final class PlasmaShuffleBlockFetcherIterator(
         remoteBlockBytes += blockInfos.map(_._2).sum
         collectFetchRequests(address, blockInfos, collectedRemoteRequests)
       }
-//      remoteBlockBytes += blockInfos.map(_._2).sum
-//      collectFetchRequests(address, blockInfos, collectedRemoteRequests)
     }
     val numRemoteBlocks = collectedRemoteRequests.map(_.blocks.size).sum
     val totalBytes = localBlockBytes + remoteBlockBytes
