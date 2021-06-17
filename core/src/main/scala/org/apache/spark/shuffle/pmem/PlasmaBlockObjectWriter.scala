@@ -17,7 +17,7 @@
 
 package org.apache.spark.shuffle.pmem
 
-import java.io.OutputStream
+import java.io.{BufferedOutputStream, OutputStream}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.serializer._
@@ -38,6 +38,7 @@ private[spark] class PlasmaBlockObjectWriter(
 
   private var os: OutputStream = _
   private var pos: PlasmaOutputStream = _
+  private var bos: BufferedOutputStream = _
   private var objOut: SerializationStream = _
   private var initialized = false
   private var streamOpen = false
@@ -45,6 +46,7 @@ private[spark] class PlasmaBlockObjectWriter(
 
   private def initialize(): Unit = {
     pos = new PlasmaOutputStream(blockId.name)
+    bos = new BufferedOutputStream(pos, PlasmaConf.DEFAULT_BUFFER_SIZE * 5)
   }
 
   def open(): PlasmaBlockObjectWriter = {
@@ -56,7 +58,7 @@ private[spark] class PlasmaBlockObjectWriter(
       initialize()
       initialized = true
     }
-    os = serializerManager.wrapStream(blockId, pos)
+    os = serializerManager.wrapStream(blockId, bos)
     objOut = serializerInstance.serializeStream(os)
     streamOpen = true
     this
@@ -101,7 +103,8 @@ private[spark] class PlasmaBlockObjectWriter(
     if (!initialized) {
       initialize()
     }
-    pos.commitAndGetMetaData().getTotalSize;
+    bos.flush()
+    pos.commitAndGetMetaData().getTotalSize
   }
 
 }
