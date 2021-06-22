@@ -16,7 +16,7 @@ package org.apache.spark.shuffle.pmem;
 
 public class PlasmaConf {
 
-  public final static int DEFAULT_BUFFER_SIZE = 4096;
+  public final static int DEFAULT_BUFFER_SIZE = 1 * 1024 * 1024;
 
   public final static String STORE_SERVER_SOCKET_KEY = "spark.io.plasma.server.socket";
   public final static String DEFAULT_STORE_SERVER_SOCKET_VALUE = "/tmp/plasma";

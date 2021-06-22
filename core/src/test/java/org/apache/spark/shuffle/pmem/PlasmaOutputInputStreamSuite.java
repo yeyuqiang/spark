@@ -202,12 +202,13 @@ public class PlasmaOutputInputStreamSuite {
 
   @Test
   public void testPlasmaObjectWriteRead() throws IOException {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1; i++) {
       BlockId blockId = new ShuffleBlockId(0, i, 0);
       PlasmaBlockObjectWriter writer = createWriter(blockId);
-      for (int j = 1; j < 100; j++) {
+      for (int j = 1; j < 3000000; j++) {
         writer.write("key" + j, "value" + j);
       }
+      writer.getPartitionLength();
 
       Iterator<Tuple2<Object, Object>> iterator = createBuf(blockId).asKeyValueIterator();
       int count = 1;
@@ -241,6 +242,33 @@ public class PlasmaOutputInputStreamSuite {
 
     PlasmaUtils.remove(blockId.name());
     assertFalse(PlasmaUtils.contains(blockId.name()));
+  }
+
+  @Test
+  public void testWriteReadPerf() throws InterruptedException {
+    ExecutorService threadPool = Executors.newFixedThreadPool(10);
+    long startTime = System.currentTimeMillis();
+    for (int i = 0; i < 10; i++) {
+      int mapId = i;
+      threadPool.submit(() -> {
+        BlockId blockId = new ShuffleBlockId(0, mapId, 0);
+        PlasmaBlockObjectWriter writer = createWriter(blockId);
+        for (int j = 1; j < 3000000; j++) {
+          writer.write("key" + j, "value" + j);
+        }
+        writer.getPartitionLength();
+
+        Iterator<Tuple2<Object, Object>> iterator = createBuf(blockId).asKeyValueIterator();
+        while (iterator.hasNext()) {
+          iterator.next();
+        }
+      });
+    }
+    threadPool.shutdown();
+    threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.MINUTES);
+    long elapsedTime = System.currentTimeMillis() - startTime;
+    double bandwidth = (10 * 81837767 / 1024 / 1024) / (elapsedTime / 1000);
+    System.out.println(bandwidth + "MB/s");
   }
 
   @AfterClass
