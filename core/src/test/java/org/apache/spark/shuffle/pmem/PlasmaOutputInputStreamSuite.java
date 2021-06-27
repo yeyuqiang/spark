@@ -20,10 +20,7 @@ package org.apache.spark.shuffle.pmem;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.network.buffer.ManagedBuffer;
-import org.apache.spark.serializer.DeserializationStream;
-import org.apache.spark.serializer.JavaSerializer;
-import org.apache.spark.serializer.SerializerInstance;
-import org.apache.spark.serializer.SerializerManager;
+import org.apache.spark.serializer.*;
 import org.apache.spark.storage.BlockId;
 import org.apache.spark.storage.ShuffleBlockId;
 import org.junit.*;
@@ -201,16 +198,36 @@ public class PlasmaOutputInputStreamSuite {
   }
 
   @Test
-  public void testPlasmaObjectWriteRead() throws IOException {
+  public void testBasicReadWriteWithCompressionAndKryo() {
+    testPlasmaObjectWriteRead(true, true);
+  }
+
+  @Test
+  public void testBasicReadWriteWithoutCompressionAndKryo() {
+    testPlasmaObjectWriteRead(false, true);
+  }
+
+  @Test
+  public void testBasicReadWriteWithCompressionAndJavaSerializer() {
+    testPlasmaObjectWriteRead(true, false);
+  }
+
+  @Test
+  public void testBasicReadWriteWithoutCompressionAndJavaSerializer() {
+    testPlasmaObjectWriteRead(false, false);
+  }
+
+  private void testPlasmaObjectWriteRead(boolean compressionEnabled, boolean isKyro) {
+//    Tuple2<SparkConf, SerializerManager> res = buildConf();
     for (int i = 0; i < 1; i++) {
       BlockId blockId = new ShuffleBlockId(0, i, 0);
-      PlasmaBlockObjectWriter writer = createWriter(blockId);
+      PlasmaBlockObjectWriter writer = createWriter(blockId, compressionEnabled, isKyro);
       for (int j = 1; j < 3000000; j++) {
         writer.write("key" + j, "value" + j);
       }
       writer.getPartitionLength();
 
-      Iterator<Tuple2<Object, Object>> iterator = createBuf(blockId).asKeyValueIterator();
+      Iterator<Tuple2<Object, Object>> iterator = createBuf(blockId, compressionEnabled, isKyro).asKeyValueIterator();
       int count = 1;
       while (iterator.hasNext()) {
         Tuple2<Object, Object> next = iterator.next();
@@ -252,13 +269,13 @@ public class PlasmaOutputInputStreamSuite {
       int mapId = i;
       threadPool.submit(() -> {
         BlockId blockId = new ShuffleBlockId(0, mapId, 0);
-        PlasmaBlockObjectWriter writer = createWriter(blockId);
+        PlasmaBlockObjectWriter writer = createWriter(blockId, true, true);
         for (int j = 1; j < 3000000; j++) {
           writer.write("key" + j, "value" + j);
         }
         writer.getPartitionLength();
 
-        Iterator<Tuple2<Object, Object>> iterator = createBuf(blockId).asKeyValueIterator();
+        Iterator<Tuple2<Object, Object>> iterator = createBuf(blockId, true, true).asKeyValueIterator();
         while (iterator.hasNext()) {
           iterator.next();
         }
@@ -299,10 +316,11 @@ public class PlasmaOutputInputStreamSuite {
     when(mockEnv.conf()).thenReturn(conf);
   }
 
-  private PlasmaBlockObjectWriter createWriter(BlockId blockId) {
+  private PlasmaBlockObjectWriter createWriter(BlockId blockId, boolean compressionEnabled, boolean isKryo) {
     SparkConf conf = new SparkConf();
-    conf.set("spark.shuffle.compress", "false");
-    JavaSerializer serializer = new JavaSerializer(conf);
+    conf.set("spark.shuffle.compress", String.valueOf(compressionEnabled));
+    Serializer serializer = isKryo? new KryoSerializer(conf): new JavaSerializer(conf);
+
     PlasmaBlockObjectWriter objectWriter = new PlasmaBlockObjectWriter(
             new SerializerManager(serializer, conf),
             serializer.newInstance(),
@@ -310,15 +328,15 @@ public class PlasmaOutputInputStreamSuite {
     return objectWriter;
   }
 
-  private DeserializationStream createBuf(BlockId blockId) {
+  private DeserializationStream createBuf(BlockId blockId, boolean compressionEnabled, boolean isKryo) {
     PlasmaInputStream pis = new PlasmaInputStream(blockId.name());
     SparkConf conf = new SparkConf();
-    conf.set("spark.shuffle.compress", "false");
-    JavaSerializer serializer = new JavaSerializer(conf);
-    SerializerInstance serializerInstance = serializer.newInstance();
+    conf.set("spark.shuffle.compress", String.valueOf(compressionEnabled));
+
+    Serializer serializer = isKryo? new KryoSerializer(conf): new JavaSerializer(conf);
     SerializerManager serializerManager = new SerializerManager(serializer, conf);
     InputStream input = serializerManager.wrapStream(blockId, pis);
 
-    return serializerInstance.deserializeStream(input);
+    return serializer.newInstance().deserializeStream(input);
   }
 }
