@@ -17,6 +17,8 @@
 
 package org.apache.spark.shuffle.pmem
 
+import java.io.File
+
 import org.apache.spark.{ShuffleDependency, SparkConf, SparkEnv, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle._
@@ -24,14 +26,21 @@ import org.apache.spark.shuffle._
 private[spark] class PlasmaShuffleManager(conf: SparkConf)
   extends ShuffleManager with Logging {
 
+  val lockFile = new File("/tmp/plasma.lock")
+
   initializePlasmaStore
 
   private[this] def initializePlasmaStore(): Unit = {
-    val isAvailable = PlasmaStoreServer.isPlasmaJavaAvailable
-    val isExist = PlasmaStoreServer.isPlasmaStoreExist();
-    if (isAvailable && isExist) {
-      PlasmaStoreServer.startPlasmaStore()
-      logInfo("Plasma Store Server started.")
+    Thread.sleep((Math.random * 5000).toInt)
+    if (lockFile.createNewFile()) {
+      logInfo("Plasma Store Server starting")
+      val isAvailable = PlasmaStoreServer.isPlasmaJavaAvailable
+      val isExist = PlasmaStoreServer.isPlasmaStoreExist
+      if (isAvailable && isExist) {
+        PlasmaStoreServer.startPlasmaStore()
+      }
+    } else {
+      logInfo("Plasma Store Server has already started")
     }
   }
 
@@ -81,6 +90,7 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
   }
 
   override def stop(): Unit = {
+    lockFile.deleteOnExit()
     shuffleBlockResolver.removeDataByMap()
     shuffleBlockResolver.stop()
   }
