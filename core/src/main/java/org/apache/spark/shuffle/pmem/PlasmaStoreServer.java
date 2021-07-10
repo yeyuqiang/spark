@@ -15,6 +15,8 @@
 package org.apache.spark.shuffle.pmem;
 
 import org.apache.spark.SparkEnv;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +30,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class PlasmaStoreServer {
+
+  private static final Logger logger = LoggerFactory.getLogger(PlasmaStoreServer.class);
 
   public final static String plasmaStoreServer = "plasma-store-server";
 
@@ -66,6 +70,20 @@ public class PlasmaStoreServer {
     ProcessBuilder processBuilder = new ProcessBuilder(cmdList).inheritIO();
     Process process = processBuilder.start();
     return process;
+  }
+
+  public static void startPlasmaStoreWithLock() throws IOException, InterruptedException {
+    if (!isPlasmaJavaAvailable() || !isPlasmaStoreExist()) {
+      logger.info("Please make sure plasma store server is installed.");
+      return;
+    }
+
+    if (PlasmaStoreLockFile.lock()) {
+      logger.info("Starting plasma store server...");
+      startPlasmaStore();
+    } else {
+      logger.info("Plasma store server is already started.");
+    }
   }
 
   public static boolean startPlasmaStore() throws IOException, InterruptedException {
