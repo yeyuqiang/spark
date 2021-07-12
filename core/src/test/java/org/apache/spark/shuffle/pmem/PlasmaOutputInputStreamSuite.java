@@ -220,9 +220,9 @@ public class PlasmaOutputInputStreamSuite {
   private void testPlasmaObjectWriteRead(boolean compressionEnabled, boolean isKyro) {
 //    Tuple2<SparkConf, SerializerManager> res = buildConf();
     for (int i = 0; i < 1; i++) {
-      BlockId blockId = new ShuffleBlockId(0, i, 0);
+      BlockId blockId = new ShuffleBlockId(random.nextInt(100), i, random.nextInt(100));
       PlasmaBlockObjectWriter writer = createWriter(blockId, compressionEnabled, isKyro);
-      for (int j = 1; j < 3000000; j++) {
+      for (int j = 1; j < 10000000; j++) {
         writer.write("key" + j, "value" + j);
       }
       writer.getPartitionLength();

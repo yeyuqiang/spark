@@ -37,10 +37,10 @@ public class MyPlasmaClient extends PlasmaClient {
   }
 
   public ByteBuffer readChunk(String parentObjectId, int index) {
-    PlasmaObjectId childObjectId = new PlasmaObjectId(parentObjectId, index);
-    ByteBuffer buffer = getObjAsByteBuffer(childObjectId.toBytes(), 0, false);
+    PlasmaObjectId objectId = new PlasmaObjectId(parentObjectId, index);
+    ByteBuffer buffer = getObjAsByteBuffer(objectId.toBytes(), 0, false);
     if (buffer != null) {
-      release(childObjectId.toBytes());
+      release(objectId.toBytes());
     }
     return buffer;
   }
@@ -57,7 +57,6 @@ public class MyPlasmaClient extends PlasmaClient {
 class MyPlasmaClientHolder {
 
   private static MyPlasmaClient client;
-
 
   static {
     System.loadLibrary("plasma_java");

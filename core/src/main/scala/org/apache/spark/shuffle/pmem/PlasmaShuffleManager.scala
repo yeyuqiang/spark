@@ -30,9 +30,9 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
 
   override def registerShuffle[K, V, C](
       shuffleId: Int,
-      dependency: ShuffleDependency[K, V, C]): ShuffleHandle =
-
+      dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
     new PlasmaShuffleHandle(shuffleId, dependency)
+  }
 
   override def getWriter[K, V](
       handle: ShuffleHandle,
@@ -63,17 +63,16 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
     val blockByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByExecutorId(
       handle.shuffleId, startMapIndex, endMapIndex, startPartition, endPartition
     )
-    new PlasmaShuffleReader(
-      handle.asInstanceOf[PlasmaShuffleHandle[K, _, C]], blockByAddress, context, conf)
+    new PlasmaShuffleReader(blockByAddress, context, conf)
   }
 
   override def unregisterShuffle(shuffleId: Int): Boolean = {
+    shuffleBlockResolver.removeDataByMap()
     true
   }
 
   override def stop(): Unit = {
     PlasmaStoreLockFile.unlock()
-    shuffleBlockResolver.removeDataByMap()
     shuffleBlockResolver.stop()
   }
 }

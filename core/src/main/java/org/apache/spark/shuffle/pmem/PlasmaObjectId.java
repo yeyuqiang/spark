@@ -35,4 +35,9 @@ public class PlasmaObjectId {
   public byte[] toBytes() {
     return objectId.getBytes();
   }
+
+  @Override
+  public String toString() {
+    return objectId;
+  }
 }

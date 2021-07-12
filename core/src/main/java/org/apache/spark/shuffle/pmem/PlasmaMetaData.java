@@ -22,27 +22,27 @@ import java.nio.ByteBuffer;
  * The last 4 bytes will record total size of object.
  */
 public class PlasmaMetaData {
-    ByteBuffer buf;
+  ByteBuffer buf;
 
-    public PlasmaMetaData(int num, long len) {
-        buf = ByteBuffer.allocate(12);
-        buf.putInt(num);
-        buf.putLong(len);
-    }
+  public PlasmaMetaData(int num, long len) {
+    buf = ByteBuffer.allocate(12);
+    buf.putInt(num);
+    buf.putLong(len);
+  }
 
-    public PlasmaMetaData(ByteBuffer buf) {
-        this.buf = buf;
-    }
+  public PlasmaMetaData(ByteBuffer buf) {
+    this.buf = buf;
+  }
 
-    public int getTotalNumber() {
-        return buf.getInt(0);
-    }
+  public int getTotalNumber() {
+    return buf.getInt(0);
+  }
 
-    public long getTotalSize() {
-        return buf.getLong(4);
-    }
+  public long getTotalSize() {
+    return buf.getLong(4);
+  }
 
-    public byte[] getBytes() {
-        return buf.array();
-    }
+  public byte[] getBytes() {
+    return buf.array();
+  }
 }
