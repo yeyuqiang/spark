@@ -24,7 +24,27 @@ import org.apache.spark.shuffle._
 private[spark] class PlasmaShuffleManager(conf: SparkConf)
   extends ShuffleManager with Logging {
 
-  PlasmaStoreServer.startPlasmaStoreWithLock
+  startPlasmaStore
+  initPlasmaClient
+
+  lazy val autoStart = conf.get(PlasmaShuffleConf.STORE_SERVER_AUTO_START)
+  lazy val plasmaStoreSocket = conf.get(PlasmaShuffleConf.STORE_SERVER_SOCKET_KEY)
+  lazy val plasmaStoreMemory = conf.get(PlasmaShuffleConf.STORE_SERVER_MEMORY_KEY)
+  lazy val plasmaStoreDir = conf.get(PlasmaShuffleConf.STORE_SERVER_DIR_KEY)
+
+  private[this] def startPlasmaStore(): Unit = {
+    if (!autoStart) {
+      return
+    }
+    PlasmaStoreServer.startPlasmaStoreWithLock(plasmaStoreSocket, plasmaStoreMemory, plasmaStoreDir)
+  }
+
+  private[this] def initPlasmaClient(): Unit = {
+    if (!autoStart) {
+      logInfo("Please start plasma store manually before initialize plasma client.")
+    }
+    MyPlasmaClientHolder.init(plasmaStoreSocket)
+  }
 
   override val shuffleBlockResolver = new PlasmaShuffleBlockResolver()
 
@@ -72,8 +92,11 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
   }
 
   override def stop(): Unit = {
-    PlasmaStoreLockFile.unlock()
-    shuffleBlockResolver.stop()
+    if (autoStart) {
+      shuffleBlockResolver.stop()
+      PlasmaStoreLockFile.unlock()
+      PlasmaStoreServer.deletePlasmaSocketFile(plasmaStoreSocket)
+    }
   }
 }
 

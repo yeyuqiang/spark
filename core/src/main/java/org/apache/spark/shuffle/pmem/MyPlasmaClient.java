@@ -15,6 +15,7 @@
 package org.apache.spark.shuffle.pmem;
 
 import org.apache.arrow.plasma.PlasmaClient;
+import org.apache.arrow.plasma.exceptions.PlasmaClientException;
 import org.apache.spark.SparkEnv;
 
 import java.nio.ByteBuffer;
@@ -65,12 +66,16 @@ class MyPlasmaClientHolder {
   private MyPlasmaClientHolder() {
   }
 
+  public static MyPlasmaClient init(String plasmaStoreSocket) {
+    if (client == null) {
+      client = new MyPlasmaClient(plasmaStoreSocket);
+    }
+    return client;
+  }
+
   public static MyPlasmaClient get() {
     if (client == null) {
-      String storeSocketName = SparkEnv.get() == null ?
-          PlasmaConf.DEFAULT_STORE_SERVER_SOCKET_VALUE :
-          SparkEnv.get().conf().get(PlasmaConf.STORE_SERVER_SOCKET_KEY);
-      client = new MyPlasmaClient(storeSocketName);
+      throw new PlasmaClientException("Plasma client is not initialized.");
     }
     return client;
   }

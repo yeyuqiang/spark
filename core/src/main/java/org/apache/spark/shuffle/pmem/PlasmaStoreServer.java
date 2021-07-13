@@ -14,7 +14,6 @@
 
 package org.apache.spark.shuffle.pmem;
 
-import org.apache.spark.SparkEnv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,18 +33,6 @@ public class PlasmaStoreServer {
   private static final Logger logger = LoggerFactory.getLogger(PlasmaStoreServer.class);
 
   public final static String plasmaStoreServer = "plasma-store-server";
-
-  public final static String plasmaStoreSocket = SparkEnv.get() == null ?
-      PlasmaConf.DEFAULT_STORE_SERVER_SOCKET_VALUE :
-      SparkEnv.get().conf().get(PlasmaConf.STORE_SERVER_SOCKET_KEY);
-
-  public final static String plasmaStoreDir = SparkEnv.get() == null ?
-      PlasmaConf.DEFAULT_STORE_SERVER_DIR_VALUE :
-      SparkEnv.get().conf().get(PlasmaConf.STORE_SERVER_DIR_KEY);
-
-  public final static String plasmaStoreMemory = SparkEnv.get() == null ?
-      PlasmaConf.DEFAULT_STORE_SERVER_MEMORY_VALUE :
-      SparkEnv.get().conf().get(PlasmaConf.STORE_SERVER_MEMORY_KEY);
 
   public static Process process;
 
@@ -72,7 +59,11 @@ public class PlasmaStoreServer {
     return process;
   }
 
-  public static void startPlasmaStoreWithLock() throws IOException, InterruptedException {
+  public static void startPlasmaStoreWithLock(
+      String plasmaStoreSocket,
+      String plasmaStoreMemory,
+      String plasmaStoreDir
+  ) throws IOException, InterruptedException {
     if (!isPlasmaJavaAvailable() || !isPlasmaStoreExist()) {
       logger.info("Please make sure plasma store server is installed.");
       return;
@@ -80,13 +71,16 @@ public class PlasmaStoreServer {
 
     if (PlasmaStoreLockFile.lock()) {
       logger.info("Starting plasma store server...");
-      startPlasmaStore();
+      startPlasmaStore(plasmaStoreSocket, plasmaStoreMemory, plasmaStoreDir);
     } else {
       logger.info("Plasma store server is already started.");
     }
   }
 
-  public static boolean startPlasmaStore() throws IOException, InterruptedException {
+  public static boolean startPlasmaStore(
+      String plasmaStoreSocket,
+      String plasmaStoreMemory,
+      String plasmaStoreDir) throws IOException, InterruptedException {
     String command = plasmaStoreServer + " -s " + plasmaStoreSocket
         + " -m " + plasmaStoreMemory + " -d " + plasmaStoreDir;
     process = startProcess(command);
@@ -118,7 +112,7 @@ public class PlasmaStoreServer {
     }
   }
 
-  public static void deletePlasmaSocketFile() {
+  public static void deletePlasmaSocketFile(String plasmaStoreSocket) {
     File socketFile = new File(plasmaStoreSocket);
     if (socketFile != null && socketFile.exists()) {
       socketFile.delete();

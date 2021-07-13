@@ -54,7 +54,7 @@ public class PlasmaInputStream extends InputStream {
    * @param parentObjectId
    */
   public PlasmaInputStream(String parentObjectId) {
-    this(parentObjectId, PlasmaConf.DEFAULT_BUFFER_SIZE);
+    this(parentObjectId, PlasmaUtils.DEFAULT_BUFFER_SIZE);
   }
 
   private boolean refill() {

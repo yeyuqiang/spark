@@ -21,6 +21,8 @@ import java.nio.ByteBuffer;
  */
 public class PlasmaUtils {
 
+  public final static int DEFAULT_BUFFER_SIZE = 1 * 1024 * 1024;
+
   private static MyPlasmaClient client = MyPlasmaClientHolder.get();
 
   public static boolean contains(String blockId) {

@@ -49,6 +49,9 @@ public class PlasmaOutputInputStreamSuite {
   @BeforeClass
   public static void setUp() {
     mockSparkEnv();
+    String plasmaStoreSocket = SparkEnv.get().conf().get(PlasmaShuffleConf.STORE_SERVER_SOCKET_KEY());
+    String plasmaStoreMemory = SparkEnv.get().conf().get(PlasmaShuffleConf.STORE_SERVER_MEMORY_KEY());
+    String plasmaStoreDir = SparkEnv.get().conf().get(PlasmaShuffleConf.STORE_SERVER_DIR_KEY());
 
     boolean isAvailable = PlasmaStoreServer.isPlasmaJavaAvailable();
     assumeTrue("Please make sure libplasma_java.so is installed" +
@@ -58,7 +61,8 @@ public class PlasmaOutputInputStreamSuite {
     assumeTrue("Please make sure plasma store server is installed " +
         "and added to the System PATH before run these unit tests", isExist);
     try {
-      boolean isStarted = PlasmaStoreServer.startPlasmaStore();
+      boolean isStarted = PlasmaStoreServer.startPlasmaStore(plasmaStoreSocket, plasmaStoreMemory, plasmaStoreDir);
+      MyPlasmaClientHolder.init(plasmaStoreSocket);
       assumeTrue("Failed to start plasma store server", isStarted);
     } catch (IOException ex1) {
       ex1.printStackTrace();
@@ -103,7 +107,7 @@ public class PlasmaOutputInputStreamSuite {
 
     pos.commitAndGetMetaData();
     assertEquals(1, PlasmaUtils.getNumberOfObjects(blockId));
-    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE, PlasmaUtils.getSizeOfObjects(blockId));
+    assertEquals(PlasmaUtils.DEFAULT_BUFFER_SIZE, PlasmaUtils.getSizeOfObjects(blockId));
 
     byte[] bytesRead = new byte[bytesWrite.length];
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
@@ -123,11 +127,11 @@ public class PlasmaOutputInputStreamSuite {
 
     pos.commitAndGetMetaData();
     assertEquals(3, PlasmaUtils.getNumberOfObjects(blockId));
-    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE * 2.7, PlasmaUtils.getSizeOfObjects(blockId), 1);
+    assertEquals(PlasmaUtils.DEFAULT_BUFFER_SIZE * 2.7, PlasmaUtils.getSizeOfObjects(blockId), 1);
 
     ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
-    byte[] buffer = new byte[PlasmaConf.DEFAULT_BUFFER_SIZE];
+    byte[] buffer = new byte[PlasmaUtils.DEFAULT_BUFFER_SIZE];
     int len;
     while ((len = pis.read(buffer)) != -1) {
       bytesRead.put(buffer, 0, len);
@@ -147,11 +151,11 @@ public class PlasmaOutputInputStreamSuite {
 
     pos.commitAndGetMetaData();
     assertEquals(2, PlasmaUtils.getNumberOfObjects(blockId));
-    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE * 2, PlasmaUtils.getSizeOfObjects(blockId));
+    assertEquals(PlasmaUtils.DEFAULT_BUFFER_SIZE * 2, PlasmaUtils.getSizeOfObjects(blockId));
 
     ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
     PlasmaInputStream pis = new PlasmaInputStream(blockId);
-    byte[] buffer = new byte[PlasmaConf.DEFAULT_BUFFER_SIZE];
+    byte[] buffer = new byte[PlasmaUtils.DEFAULT_BUFFER_SIZE];
     while (pis.read(buffer) != -1) {
       bytesRead.put(buffer);
     }
@@ -175,11 +179,11 @@ public class PlasmaOutputInputStreamSuite {
 
           pos.commitAndGetMetaData();
           assertEquals(6, PlasmaUtils.getNumberOfObjects(blockId));
-          assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE * 5.7, PlasmaUtils.getSizeOfObjects(blockId), 1);
+          assertEquals(PlasmaUtils.DEFAULT_BUFFER_SIZE * 5.7, PlasmaUtils.getSizeOfObjects(blockId), 1);
 
           ByteBuffer bytesRead = ByteBuffer.allocate(bytesWrite.length);
           PlasmaInputStream pis = new PlasmaInputStream(blockId);
-          byte[] buffer = new byte[PlasmaConf.DEFAULT_BUFFER_SIZE];
+          byte[] buffer = new byte[PlasmaUtils.DEFAULT_BUFFER_SIZE];
           int len;
           while ((len = pis.read(buffer)) != -1) {
             bytesRead.put(buffer, 0, len);
@@ -249,7 +253,7 @@ public class PlasmaOutputInputStreamSuite {
 
     pos.commitAndGetMetaData();
     assertEquals(1, PlasmaUtils.getNumberOfObjects(blockId.name()));
-    assertEquals(PlasmaConf.DEFAULT_BUFFER_SIZE, PlasmaUtils.getSizeOfObjects(blockId.name()));
+    assertEquals(PlasmaUtils.DEFAULT_BUFFER_SIZE, PlasmaUtils.getSizeOfObjects(blockId.name()));
 
     long size = PlasmaUtils.getSizeOfObjects(blockId.name());
     ManagedBuffer managedBuffer = new PlasmaShuffleManagedBuffer(blockId, size);
@@ -291,25 +295,26 @@ public class PlasmaOutputInputStreamSuite {
   @AfterClass
   public static void tearDown() {
     try {
+      String plasmaStoreSocket = SparkEnv.get().conf().get(PlasmaShuffleConf.STORE_SERVER_SOCKET_KEY());
+
       MyPlasmaClientHolder.close();
       PlasmaStoreServer.stopPlasmaStore();
-      PlasmaStoreServer.deletePlasmaSocketFile();
+      PlasmaStoreServer.deletePlasmaSocketFile(plasmaStoreSocket);
     } catch (InterruptedException ex) {
       ex.printStackTrace();
     }
   }
 
   private byte[] prepareByteBlockToWrite(double numOfBlock) {
-    byte[] bytesToWrite = new byte[(int) (PlasmaConf.DEFAULT_BUFFER_SIZE * numOfBlock)];
+    byte[] bytesToWrite = new byte[(int) (PlasmaUtils.DEFAULT_BUFFER_SIZE * numOfBlock)];
     random.nextBytes(bytesToWrite);
     return bytesToWrite;
   }
 
   private static void mockSparkEnv() {
     SparkConf conf = new SparkConf();
-    conf.set("spark.io.plasma.server.socket", "/tmp/PlasmaOutputInputStreamSuite-Socket-File");
-    conf.set("spark.io.plasma.server.dir", PlasmaConf.DEFAULT_STORE_SERVER_DIR_VALUE);
-    conf.set("spark.io.plasma.server.memory", PlasmaConf.DEFAULT_STORE_SERVER_MEMORY_VALUE);
+    conf.set(PlasmaShuffleConf.STORE_SERVER_SOCKET_KEY(), "/tmp/PlasmaOutputInputStreamSuite-Socket-File");
+    conf.set(PlasmaShuffleConf.STORE_SERVER_AUTO_START(), true);
 
     SparkEnv mockEnv = mock(SparkEnv.class);
     SparkEnv.set(mockEnv);

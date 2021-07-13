@@ -46,7 +46,7 @@ private[spark] class PlasmaBlockObjectWriter(
 
   private def initialize(): Unit = {
     pos = new PlasmaOutputStream(blockId.name)
-    bos = new BufferedOutputStream(pos, PlasmaConf.DEFAULT_BUFFER_SIZE)
+    bos = new BufferedOutputStream(pos, PlasmaUtils.DEFAULT_BUFFER_SIZE)
   }
 
   def open(): PlasmaBlockObjectWriter = {

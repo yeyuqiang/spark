@@ -43,7 +43,7 @@ private[spark] class PlasmaShuffleManagedBuffer(
   override def nioByteBuffer(): ByteBuffer = {
     val in = createInputStream()
     val readBuf = ByteBuffer.allocate(size().toInt)
-    val buf = new Array[Byte](PlasmaConf.DEFAULT_BUFFER_SIZE)
+    val buf = new Array[Byte](PlasmaUtils.DEFAULT_BUFFER_SIZE)
     var len = 0
     while ( {
       len = in.read(buf);

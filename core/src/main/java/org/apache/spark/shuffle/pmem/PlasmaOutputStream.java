@@ -58,7 +58,7 @@ public class PlasmaOutputStream extends OutputStream {
    * @param parentObjectId
    */
   public PlasmaOutputStream(String parentObjectId) {
-    this(parentObjectId, PlasmaConf.DEFAULT_BUFFER_SIZE);
+    this(parentObjectId, PlasmaUtils.DEFAULT_BUFFER_SIZE);
   }
 
   @Override
@@ -99,7 +99,7 @@ public class PlasmaOutputStream extends OutputStream {
     if (buffer.hasRemaining()) {
       client.writeChunk(parentObjectId, currChildObjectNumber, shrinkLastObjBuffer());
     } else {
-      sizeOfObjects += PlasmaConf.DEFAULT_BUFFER_SIZE;
+      sizeOfObjects += PlasmaUtils.DEFAULT_BUFFER_SIZE;
       client.writeChunk(parentObjectId, currChildObjectNumber, buffer.array());
     }
   }
