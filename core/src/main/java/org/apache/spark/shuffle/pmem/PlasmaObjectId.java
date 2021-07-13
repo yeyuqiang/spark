@@ -14,26 +14,26 @@
 
 package org.apache.spark.shuffle.pmem;
 
-import org.apache.commons.lang3.StringUtils;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
 
 public class PlasmaObjectId {
 
   private final String objectId;
+  private static HashFunction hf = Hashing.murmur3_128();
 
   public PlasmaObjectId(String parentObjectId, int index) {
-    int parentObjectIdLen = parentObjectId.length();
-    int indexDigitNum = String.valueOf(index).length();
-
-    if (parentObjectIdLen + indexDigitNum > 20) {
-      throw new IllegalArgumentException("Each object in the Plasma store" +
-          " should be associated with a unique ID which is a string of 20 length");
-    } else {
-      this.objectId = StringUtils.rightPad(parentObjectId, 20 - indexDigitNum, "*") + index;
-    }
+    this.objectId = parentObjectId + index;
   }
 
   public byte[] toBytes() {
-    return objectId.getBytes();
+    return hash(objectId);
+  }
+
+  private byte[] hash(String objectId) {
+    byte[] ret = new byte[20];
+    hf.newHasher().putBytes(objectId.getBytes()).hash().writeBytesTo(ret, 0, 20);
+    return ret;
   }
 
   @Override
