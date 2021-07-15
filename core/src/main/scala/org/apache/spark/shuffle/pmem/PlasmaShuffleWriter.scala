@@ -17,10 +17,9 @@
 
 package org.apache.spark.shuffle.pmem
 
-import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.MapStatus
-import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
+import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleWriter
 import org.apache.spark.storage.{BlockManager, ShuffleBlockId}
 
@@ -28,11 +27,12 @@ private[spark] class PlasmaShuffleWriter[K, V, C](
     blockManager: BlockManager,
     handle: PlasmaShuffleHandle[K, V, C],
     mapId: Long,
-    serializerManager: SerializerManager,
-    conf: SparkConf)
+    serializerManager: SerializerManager)
   extends ShuffleWriter[K, V] with Logging  {
 
   private val dep = handle.dependency
+  private val serializer = dep.serializer;
+
   private val partitioner = dep.partitioner
   private val numPartitions = partitioner.numPartitions
   private val shuffleId = dep.shuffleId
@@ -47,7 +47,7 @@ private[spark] class PlasmaShuffleWriter[K, V, C](
     val plasmaOutputStreamArray = (0 until numPartitions).toArray.map(partitionId =>
       new PlasmaBlockObjectWriter(
         serializerManager,
-        new JavaSerializer(conf).newInstance(),
+        serializer.newInstance(),
         ShuffleBlockId(shuffleId, mapId, partitionId)
       )
     )

@@ -19,17 +19,19 @@ package org.apache.spark.shuffle.pmem
 
 import org.apache.spark._
 import org.apache.spark.internal.{config, Logging}
-import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
+import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReader
 import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerId}
 
 private[spark] class PlasmaShuffleReader[K, C](
+    handle: PlasmaShuffleHandle[K, _, C],
     blocksByAddress: Iterator[(BlockManagerId, Seq[(BlockId, Long, Int)])],
     context: TaskContext,
-    conf: SparkConf,
     serializerManager: SerializerManager = SparkEnv.get.serializerManager,
     blockManager: BlockManager = SparkEnv.get.blockManager)
   extends ShuffleReader[K, C] with Logging {
+
+  private val dep = handle.dependency
 
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
@@ -45,7 +47,7 @@ private[spark] class PlasmaShuffleReader[K, C](
       SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT)
     ).toCompletionIterator
 
-    val serializerInstance = new JavaSerializer(conf).newInstance()
+    val serializerInstance = dep.serializer.newInstance()
 
     val recordIter = wrappedStream.flatMap { case (_, wrappedStream) =>
       serializerInstance.deserializeStream(wrappedStream).asKeyValueIterator

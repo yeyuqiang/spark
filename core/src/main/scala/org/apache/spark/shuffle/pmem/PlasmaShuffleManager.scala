@@ -67,8 +67,7 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
           env.blockManager,
           plasmaShuffleHandle,
           mapId,
-          serializerManager,
-          conf)
+          serializerManager)
     }
   }
 
@@ -83,7 +82,10 @@ private[spark] class PlasmaShuffleManager(conf: SparkConf)
     val blockByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByExecutorId(
       handle.shuffleId, startMapIndex, endMapIndex, startPartition, endPartition
     )
-    new PlasmaShuffleReader(blockByAddress, context, conf)
+    new PlasmaShuffleReader(
+      handle.asInstanceOf[PlasmaShuffleHandle[K, _, C]],
+      blockByAddress,
+      context)
   }
 
   override def unregisterShuffle(shuffleId: Int): Boolean = {
