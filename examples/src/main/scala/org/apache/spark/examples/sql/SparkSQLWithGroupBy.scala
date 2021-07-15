@@ -36,7 +36,6 @@ object SparkSQLWithGroupBy {
       .config("spark.io.plasma.server.dir", "/dev/shm")
       .config("spark.io.plasma.server.memory", "1000000000")
       .config("spark.io.plasma.auto.start", true)
-      .config("spark.shuffle.compress", "false")
       .master("local")
       .getOrCreate()
 

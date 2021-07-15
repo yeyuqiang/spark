@@ -33,7 +33,6 @@ object SimplePartitionExample {
       .config("spark.io.plasma.server.dir", "/dev/shm")
       .config("spark.io.plasma.server.memory", "500000000")
       .config("spark.io.plasma.auto.start", true)
-      .config("spark.shuffle.compress", "false")
       .master("local")
       .getOrCreate()
     val sc = spark.sparkContext

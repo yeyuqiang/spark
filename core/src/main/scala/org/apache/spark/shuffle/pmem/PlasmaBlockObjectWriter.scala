@@ -117,7 +117,10 @@ private[spark] class PlasmaBlockObjectWriter(
     if (!streamOpen) {
       0
     } else {
+      objOut.flush()
       bs.flush()
+      objOut.close()
+      streamOpen = false
       pos.commitAndGetMetaData().getTotalSize
     }
   }
