@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
  */
 public class PlasmaUtils {
 
-  public final static int DEFAULT_BUFFER_SIZE = 1 * 1024 * 1024;
+  public final static int DEFAULT_BUFFER_SIZE = 32 * 1024;
 
   private static MyPlasmaClient client = MyPlasmaClientHolder.get();
 

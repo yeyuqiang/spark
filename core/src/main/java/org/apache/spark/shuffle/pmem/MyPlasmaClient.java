@@ -15,8 +15,10 @@
 package org.apache.spark.shuffle.pmem;
 
 import org.apache.arrow.plasma.PlasmaClient;
+import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
 import org.apache.arrow.plasma.exceptions.PlasmaClientException;
-import org.apache.spark.SparkEnv;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 
@@ -28,13 +30,19 @@ import java.nio.ByteBuffer;
  */
 public class MyPlasmaClient extends PlasmaClient {
 
+  private static final Logger logger = LoggerFactory.getLogger(MyPlasmaClient.class);
+
   public MyPlasmaClient(String storeSocketName) {
     super(storeSocketName, "", 0);
   }
 
   public void writeChunk(String parentObjectId, int index, byte[] buffer) {
     PlasmaObjectId objectId = new PlasmaObjectId(parentObjectId, index);
-    put(objectId.toBytes(), buffer, null);
+    try {
+      put(objectId.toBytes(), buffer, null);
+    } catch (DuplicateObjectException ex) {
+      logger.warn("Skipping write this plasma object due to duplicated");
+    }
   }
 
   public ByteBuffer readChunk(String parentObjectId, int index) {

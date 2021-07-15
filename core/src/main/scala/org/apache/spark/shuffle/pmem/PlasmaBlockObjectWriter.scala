@@ -36,9 +36,19 @@ private[spark] class PlasmaBlockObjectWriter(
   with Logging
   with PairsWriter {
 
-  private var os: OutputStream = _
+  private trait ManualCloseOutputStream extends OutputStream {
+    abstract override def close(): Unit = {
+      flush()
+    }
+
+    def manualClose(): Unit = {
+      super.close()
+    }
+  }
+
+  private var mcs: ManualCloseOutputStream = null
+  private var bs: OutputStream = _
   private var pos: PlasmaOutputStream = _
-  private var bos: BufferedOutputStream = _
   private var objOut: SerializationStream = _
   private var initialized = false
   private var streamOpen = false
@@ -46,7 +56,10 @@ private[spark] class PlasmaBlockObjectWriter(
 
   private def initialize(): Unit = {
     pos = new PlasmaOutputStream(blockId.name)
-    bos = new BufferedOutputStream(pos, PlasmaUtils.DEFAULT_BUFFER_SIZE)
+    class ManualCloseBufferedOutputStream
+      extends BufferedOutputStream(pos, PlasmaUtils.DEFAULT_BUFFER_SIZE)
+        with ManualCloseOutputStream
+    mcs = new ManualCloseBufferedOutputStream
   }
 
   def open(): PlasmaBlockObjectWriter = {
@@ -58,8 +71,8 @@ private[spark] class PlasmaBlockObjectWriter(
       initialize()
       initialized = true
     }
-    os = serializerManager.wrapStream(blockId, bos)
-    objOut = serializerInstance.serializeStream(os)
+    bs = serializerManager.wrapStream(blockId, mcs)
+    objOut = serializerInstance.serializeStream(bs)
     streamOpen = true
     this
   }
@@ -67,10 +80,11 @@ private[spark] class PlasmaBlockObjectWriter(
   override def close(): Unit = {
     if (initialized) {
       Utils.tryWithSafeFinally {
-        pos.close()
+        mcs.manualClose()
       } {
+        mcs = null
+        bs = null
         pos = null
-        os = null
         objOut = null
         initialized = false
         streamOpen = false
@@ -96,15 +110,16 @@ private[spark] class PlasmaBlockObjectWriter(
       open()
     }
 
-    os.write(kvBytes, offs, len)
+    bs.write(kvBytes, offs, len)
   }
 
   def getPartitionLength(): Long = {
-    if (!initialized) {
-      initialize()
+    if (!streamOpen) {
+      0
+    } else {
+      bs.flush()
+      pos.commitAndGetMetaData().getTotalSize
     }
-    bos.flush()
-    pos.commitAndGetMetaData().getTotalSize
   }
 
 }
